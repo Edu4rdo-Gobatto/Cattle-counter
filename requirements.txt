@@ -2,9 +2,9 @@
 # Otimizado para AMD Ryzen 7 5700U (CPU) + Python 3.10+
 
 ultralytics>=8.3.0
-supervision>=0.24.0
+supervision>=0.24.0,<0.31.0  # sv.ByteTrack sera removido na 0.31
 opencv-python>=4.10.0
-numpy>=1.24.0,<2.0.0
+numpy>=1.24.0
 torch>=2.2.0
 torchvision>=0.17.0
 tqdm>=4.66.0

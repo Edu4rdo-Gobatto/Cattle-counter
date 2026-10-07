@@ -20,8 +20,8 @@ OUTPUT_VIDEO_PATH = BASE_DIR / "output_annotated_video.mp4"
 # 'cpu' para execução nativa no Ryzen 7
 DEVICE = "cpu"
 
-# 8 núcleos físicos dedicados à inferência PyTorch
-CPU_NUM_THREADS = 8
+# Núcleos dedicados à inferência PyTorch (metade dos threads lógicos ~ núcleos físicos)
+CPU_NUM_THREADS = max(1, (os.cpu_count() or 2) // 2)
 
 # Caminho ou nome do modelo YOLO
 # Pode ser 'yolov8n.pt', 'yolo11n.pt' ou arquivo customizado treinado para visão aérea (ex: 'best.pt')
@@ -35,9 +35,9 @@ CONFIDENCE_THRESHOLD = 0.35  # Limiar de confiança mínima para considerar um a
 IOU_THRESHOLD = 0.45         # Limiar de Non-Maximum Suppression (NMS)
 
 # No modelo COCO padrão do YOLO:
-# Classe 19 = 'cow' (bovino)
+# Classe 19 = 'cow' (bovino) | Classe 18 = 'sheep' (o COCO classifica o Nelore branco como ovelha)
 # Se estiver usando um modelo customizado (onde classe 0 é gado), mude para [0] ou None para todas.
-CLASSES_OF_INTEREST = [19]
+CLASSES_OF_INTEREST = [18, 19]
 
 # ==============================================================================
 # 3. RASTREAMENTO ESPACIAL (BYTETRACK VIA SUPERVISION)
@@ -87,3 +87,13 @@ COLOR_BOX = (255, 191, 0)             # Deep Sky Blue
 COLOR_TEXT = (255, 255, 255)          # Branco
 COLOR_PANEL_BG = (20, 20, 20)         # Cinza escuro quase preto
 PANEL_OPACITY = 0.75                  # Transparência do HUD superior
+
+# ==============================================================================
+# 6. EXIBIÇÃO AO VIVO (MODO APRESENTAÇÃO)
+# ==============================================================================
+# Abre uma janela do OpenCV mostrando o vídeo anotado enquanto ele é processado
+SHOW_WINDOW = False
+WINDOW_NAME = "Contador Aereo de Bovinos"
+
+# Altura inicial da janela em pixels (a janela pode ser redimensionada ou maximizada)
+WINDOW_HEIGHT = 900

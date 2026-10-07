@@ -20,7 +20,7 @@ IF NOT EXIST "input_video.mp4" (
 ) ELSE (
     echo [INICIANDO] Processando 'input_video.mp4'...
     echo.
-    .\.venv\Scripts\python.exe main.py --input input_video.mp4 --output output_annotated_video.mp4
+    .\.venv\Scripts\python.exe main.py --input input_video.mp4 --output output_annotated_video.mp4 --show
 )
 
 echo.

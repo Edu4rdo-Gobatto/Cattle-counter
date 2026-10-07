@@ -7,6 +7,7 @@ Decodificação -> Detecção YOLO -> Rastreamento ByteTrack -> Contagem -> HUD 
 import argparse
 import time
 from pathlib import Path
+from typing import Dict, List, Tuple
 import cv2
 import numpy as np
 import supervision as sv
@@ -18,115 +19,90 @@ from tracker import CattleTracker
 from counter import CattleCounter
 
 
+# Item de texto do HUD: (texto, escala da fonte, cor BGR, espessura)
+HudItem = Tuple[str, float, Tuple[int, int, int], int]
+
+
 def draw_hud(
     frame: np.ndarray,
-    counts: dict,
+    counts: Dict[str, int],
     current_frame: int,
     total_frames: int,
     current_fps: float,
     enable_linezone: bool,
 ) -> np.ndarray:
     """
-    Desenha um painel superior de telemetria (HUD) translúcido e profissional no frame.
+    Desenha um painel superior de telemetria (HUD) translúcido no frame.
+    O layout é calculado pela largura do quadro: em vídeos estreitos (verticais)
+    as métricas quebram linha em vez de se sobreporem.
     """
     height, width = frame.shape[:2]
-    hud_height = 85
-
-    # Criação da camada de overlay translúcida
-    overlay = frame.copy()
-    cv2.rectangle(
-        overlay,
-        (0, 0),
-        (width, hud_height),
-        config.COLOR_PANEL_BG,
-        -1,
-    )
-    # Linha divisória inferior do HUD
-    cv2.line(
-        overlay,
-        (0, hud_height),
-        (width, hud_height),
-        config.COLOR_ACCENT,
-        2,
-    )
-    # Aplica transparência
-    cv2.addWeighted(
-        overlay,
-        config.PANEL_OPACITY,
-        frame,
-        1.0 - config.PANEL_OPACITY,
-        0,
-        frame,
-    )
-
-    # Tipografia e Métricas
     font = cv2.FONT_HERSHEY_DUPLEX
-    
-    # 1. Título do Sistema
-    cv2.putText(
-        frame,
-        "MONITORAMENTO AEREO DE BOVINOS",
-        (20, 28),
-        font,
-        0.65,
-        config.COLOR_TEXT,
-        1,
-        cv2.LINE_AA,
-    )
 
-    # 2. Métrica: Animais Ativos no Frame Atual (Imune a giros 360°)
-    active_str = f"NO QUADRO: {counts['active_in_frame']}"
-    cv2.putText(
-        frame,
-        active_str,
-        (20, 65),
-        font,
-        0.85,
-        config.COLOR_PRIMARY_HUD,
-        2,
-        cv2.LINE_AA,
-    )
+    # Escala proporcional à resolução, para o texto ficar legível em qualquer vídeo
+    ui = min(max(min(width, height) / 720.0, 0.6), 2.0)
+    margin = int(20 * ui)
+    gap_x = int(30 * ui)
+    gap_y = int(14 * ui)
 
-    # 3. Métrica: Total Acumulado Confirmado (Filtro de persistência)
-    total_str = f"TOTAL CONFIRMADO: {counts['confirmed_unique_total']}"
-    cv2.putText(
-        frame,
-        total_str,
-        (280, 65),
-        font,
-        0.85,
-        config.COLOR_ACCENT,
-        2,
-        cv2.LINE_AA,
-    )
+    def item(text: str, scale: float, color: Tuple[int, int, int], thick: int) -> HudItem:
+        return (text, scale * ui, color, max(1, round(thick * ui)))
 
-    # 4. Métrica: LineZone (caso ativada)
+    def size(it: HudItem) -> Tuple[int, int]:
+        (w, h), baseline = cv2.getTextSize(it[0], font, it[1], it[3])
+        return w, h + baseline
+
+    title = item("MONITORAMENTO AEREO DE BOVINOS", 0.65, config.COLOR_TEXT, 1)
+    telemetry = item(
+        f"Frame: {current_frame}/{total_frames} | {current_fps:.1f} FPS", 0.55, (200, 200, 200), 1
+    )
+    metrics: List[HudItem] = [
+        item(f"NO QUADRO: {counts['active_in_frame']}", 0.85, config.COLOR_PRIMARY_HUD, 2),
+        item(f"TOTAL CONFIRMADO: {counts['confirmed_unique_total']}", 0.85, config.COLOR_ACCENT, 2),
+    ]
     if enable_linezone:
-        line_str = f"LINE IN: {counts['line_in']} | OUT: {counts['line_out']}"
-        cv2.putText(
-            frame,
-            line_str,
-            (620, 65),
-            font,
-            0.65,
-            (0, 255, 255),
-            2,
-            cv2.LINE_AA,
+        metrics.append(
+            item(f"LINE IN: {counts['line_in']} | OUT: {counts['line_out']}", 0.65, (0, 255, 255), 2)
         )
 
-    # 5. Telemetria Técnica: Frame e FPS de Processamento
-    progress_str = f"Frame: {current_frame}/{total_frames} | {current_fps:.1f} FPS"
-    text_size = cv2.getTextSize(progress_str, font, 0.55, 1)[0]
-    cv2.putText(
-        frame,
-        progress_str,
-        (width - text_size[0] - 20, 48),
-        font,
-        0.55,
-        (200, 200, 200),
-        1,
-        cv2.LINE_AA,
-    )
+    # Distribui as métricas em linhas que cabem na largura disponível
+    available = width - 2 * margin
+    rows: List[List[HudItem]] = [[]]
+    row_width = 0
+    for it in metrics:
+        w = size(it)[0]
+        if rows[-1] and row_width + gap_x + w > available:
+            rows.append([])
+            row_width = 0
+        row_width += (gap_x if rows[-1] else 0) + w
+        rows[-1].append(it)
+
+    # Telemetria fica à direita do título; se não couber, vai para uma linha própria
+    telemetry_inline = size(title)[0] + gap_x + size(telemetry)[0] <= available
+    all_rows = [[title]] + rows + ([] if telemetry_inline else [[telemetry]])
+
+    row_heights = [max(size(it)[1] for it in row) for row in all_rows]
+    hud_height = margin + sum(row_heights) + gap_y * (len(all_rows) - 1) + margin // 2
+
+    # Camada translúcida apenas sobre a faixa do painel (evita copiar o quadro inteiro)
+    panel = frame[:hud_height]
+    overlay = panel.copy()
+    cv2.rectangle(overlay, (0, 0), (width, hud_height), config.COLOR_PANEL_BG, -1)
+    cv2.addWeighted(overlay, config.PANEL_OPACITY, panel, 1.0 - config.PANEL_OPACITY, 0, panel)
+    cv2.line(frame, (0, hud_height), (width, hud_height), config.COLOR_ACCENT, max(1, round(2 * ui)))
+
+    # Escreve os textos linha a linha
+    y = margin
+    for row, row_h in zip(all_rows, row_heights):
+        baseline_y = y + row_h - int(4 * ui)
+        x = margin
+        for it in row:
+            cv2.putText(frame, it[0], (x, baseline_y), font, it[1], it[2], it[3], cv2.LINE_AA)
+            x += size(it)[0] + gap_x
+        if row[0] is title and telemetry_inline:
+            tx = width - margin - size(telemetry)[0]
+            cv2.putText(frame, telemetry[0], (tx, baseline_y), font, telemetry[1], telemetry[2], telemetry[3], cv2.LINE_AA)
+        y += row_h + gap_y
 
     return frame
 
@@ -136,6 +112,7 @@ def process_video(
     output_path: Path,
     model_path: str = config.MODEL_WEIGHTS,
     enable_linezone: bool = config.ENABLE_LINEZONE,
+    show_window: bool = config.SHOW_WINDOW,
 ):
     """Executa o pipeline completo de contagem aérea e gravação do vídeo anotado."""
     if not input_path.exists():
@@ -145,7 +122,7 @@ def process_video(
         )
 
     print(f"\n{'='*70}")
-    print("INICIANDO PIPELINE DE CONTAGEM AEREA DE BOVINOS (AMD RYZEN 7 5700U)")
+    print("INICIANDO PIPELINE DE CONTAGEM AEREA DE BOVINOS")
     print(f"{'='*70}")
     print(f"Vídeo de Entrada: {input_path}")
     print(f"Vídeo de Saída:   {output_path}")
@@ -196,6 +173,25 @@ def process_video(
         thickness=config.TRACE_THICKNESS,
         color=sv.Color.from_hex("#FF8C00"),  # Rastro laranja visível contra grama verde
     )
+
+    # Janela de exibição ao vivo (redimensionável, proporção do vídeo preservada)
+    if show_window:
+        cv2.namedWindow(config.WINDOW_NAME, cv2.WINDOW_NORMAL | cv2.WINDOW_KEEPRATIO)
+        cv2.resizeWindow(
+            config.WINDOW_NAME,
+            int(config.WINDOW_HEIGHT * width / height),
+            config.WINDOW_HEIGHT,
+        )
+        print("Janela ao vivo:   [ESPACO] pausa | [F] tela cheia | [Q]/[ESC] encerra")
+    fullscreen = False
+
+    # Contagens iniciais (garante o resumo final mesmo se nenhum frame for lido)
+    counts: Dict[str, int] = {
+        "active_in_frame": 0,
+        "confirmed_unique_total": 0,
+        "line_in": 0,
+        "line_out": 0,
+    }
 
     # Loop principal de processamento
     frame_idx = 0
@@ -272,10 +268,33 @@ def process_video(
                 # Grava o quadro anotado no arquivo de saída
                 writer.write(annotated_frame)
                 pbar.update(1)
+
+                # Exibição ao vivo com controles de teclado
+                if show_window:
+                    cv2.imshow(config.WINDOW_NAME, annotated_frame)
+                    key = cv2.waitKey(1) & 0xFF
+                    if key == ord(" "):
+                        # Pausa até nova tecla de espaço (ou saída)
+                        key = 0
+                        while key not in (ord(" "), ord("q"), 27):
+                            key = cv2.waitKey(50) & 0xFF
+                    if key in (ord("f"), ord("F")):
+                        fullscreen = not fullscreen
+                        cv2.setWindowProperty(
+                            config.WINDOW_NAME,
+                            cv2.WND_PROP_FULLSCREEN,
+                            cv2.WINDOW_FULLSCREEN if fullscreen else cv2.WINDOW_NORMAL,
+                        )
+                    window_closed = cv2.getWindowProperty(config.WINDOW_NAME, cv2.WND_PROP_VISIBLE) < 1
+                    if key in (ord("q"), 27) or window_closed:
+                        print("\n[INFO] Exibição encerrada pelo usuário.")
+                        break
     finally:
         # Liberação garantida de recursos para evitar corrupção de arquivo de vídeo
         cap.release()
         writer.release()
+        if show_window:
+            cv2.destroyAllWindows()
     total_time = time.time() - start_total_time
     avg_fps = frame_idx / total_time if total_time > 0 else 0
 
@@ -319,6 +338,12 @@ if __name__ == "__main__":
         default=config.ENABLE_LINEZONE,
         help="Habilita a contagem por LineZone além do totalizador de persistência.",
     )
+    parser.add_argument(
+        "--show",
+        action="store_true",
+        default=config.SHOW_WINDOW,
+        help="Exibe o vídeo anotado ao vivo numa janela enquanto processa.",
+    )
 
     args = parser.parse_args()
 
@@ -327,4 +352,5 @@ if __name__ == "__main__":
         output_path=Path(args.output),
         model_path=args.model,
         enable_linezone=args.enable_linezone,
+        show_window=args.show,
     )
