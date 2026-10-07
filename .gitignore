@@ -1,0 +1,39 @@
+# Ambientes virtuais (pastas de ambiente Python)
+.env/
+.venv/
+env/
+venv/
+ENV/
+*.venv
+
+# Arquivos de variáveis de ambiente e segredos
+.env
+.env.*
+!.env.example
+
+# Bytecode e cache do Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+aa
+# Modelos e Pesos
+*.pt
+*.onnx
+
+# Diretórios de dados e outputs
+data/datasets/
+data/input/
+data/output/
+
+# Vídeos e gravações (arquivos binários pesados)
+*.mp4
+*.avi
+*.mov
+*.mkv
+
+# Configurações de IDE e editores
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
