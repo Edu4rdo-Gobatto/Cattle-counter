@@ -305,6 +305,13 @@ def process_video(
     print(f"Tempo Total:              {total_time:.2f} s")
     print(f"Velocidade Média da CPU:  {avg_fps:.2f} FPS")
     print(f"Bovinos Únicos Validados: {counts['confirmed_unique_total']}")
+
+    # Diagnóstico de fragmentação: muitos IDs criados para poucos confirmados indica
+    # que o tracker está perdendo animais e recriando IDs novos (blur, oclusão, câmera)
+    total_ids = len(counter.id_frame_counts)
+    print(f"IDs Criados pelo Tracker: {total_ids}")
+    if counts["confirmed_unique_total"] > 0:
+        print(f"Fragmentação (IDs/conf.): {total_ids / counts['confirmed_unique_total']:.2f}")
     if enable_linezone:
         print(f"LineZone In / Out:        {counts['line_in']} / {counts['line_out']}")
     print(f"Vídeo Anotado Salvo Em:   {output_path.resolve()}\n")

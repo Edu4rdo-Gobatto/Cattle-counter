@@ -52,14 +52,16 @@ Os módulos estão **na raiz** do projeto:
 
 **Lógica de contagem (diferencial do projeto):** um `tracker_id` só entra no "TOTAL CONFIRMADO" depois de aparecer em `MIN_FRAMES_PERSISTENCE` (15) frames. Isso filtra falsos positivos (pedras, sombras) e torna a contagem imune a giros de 360° do drone, porque os mesmos IDs não são somados de novo. A LineZone (in/out) é opcional (`ENABLE_LINEZONE`) e serve para voos retilíneos em corredor.
 
-**Parâmetros principais (`config.py`):** `MODEL_WEIGHTS="yolov8n.pt"`, `CONFIDENCE_THRESHOLD=0.35`, `IOU_THRESHOLD=0.45`, `CLASSES_OF_INTEREST=[19]`, `TRACK_ACTIVATION_THRESHOLD=0.30`, `LOST_TRACK_BUFFER=45`, `MINIMUM_MATCHING_THRESHOLD=0.70`, `INFERENCE_IMAGE_SIZE=640`, `DEVICE="cpu"`, `CPU_NUM_THREADS=8`.
+**Parâmetros principais (`config.py`):** `MODEL_WEIGHTS="yolov8n.pt"`, `CONFIDENCE_THRESHOLD=0.35`, `IOU_THRESHOLD=0.45`, `CLASSES_OF_INTEREST=[18, 19]` (sheep + cow), `TRACK_ACTIVATION_THRESHOLD=0.30`, `LOST_TRACK_BUFFER=45`, `MINIMUM_MATCHING_THRESHOLD=0.70`, `INFERENCE_IMAGE_SIZE=640`, `DEVICE="cpu"`, `CPU_NUM_THREADS` = metade de `os.cpu_count()`, `SHOW_WINDOW=False`.
 
 ### Como executar
 ```bash
+.\run.bat                      # Windows: demo com janela ao vivo (./run.sh no Linux)
 .venv\Scripts\activate
 python -m unittest test_pipeline -v
-python main.py --input video-gado.mp4 --output saida.mp4
+python main.py --input video-gado.mp4 --output saida.mp4 [--show]
 ```
+O roteiro da apresentação em sala está em `APRESENTACAO.md`.
 
 ### Resultados dos testes (07/10/2026)
 * `unittest`: 5/5 OK.
@@ -68,14 +70,26 @@ python main.py --input video-gado.mp4 --output saida.mp4
   * Com `CLASSES_OF_INTEREST=[19]`: **0 bovinos.** O COCO classifica Nelore como `sheep` (classe 18).
   * Com `[18, 19]`: **72 confirmados**, ~11 FPS na CPU. Os animais próximos são detectados (conf 0,5–0,9), os distantes no fundo não. O valor provavelmente está **acima do real**: a câmera se move muito e foram criados 121 IDs (trocas de ID). Os ~20 frames finais são a vinheta do TikTok, sem bois.
 
-### Pendências conhecidas (por prioridade)
-1. **Classe errada para Nelore:** trocar `CLASSES_OF_INTEREST` para `[18, 19]` enquanto o modelo for o COCO genérico. Com um `best.pt` do Roboflow, verificar o ID da classe em `model.names`.
-2. **ByteTrack depreciado:** `sv.ByteTrack` está depreciado desde a supervision 0.28 e será **removido na 0.31**. Hoje o `requirements.txt` pede `supervision>=0.24.0`, sem teto, então é preciso travar `<0.31` ou migrar o tracker.
-3. **`requirements.txt` divergente:** pede `numpy<2.0.0`, mas o ambiente funciona com a 2.4.6. Travar as versões validadas.
-4. **`NameError` com vídeo vazio:** em `main.py`, `counts` só existe se pelo menos um frame for lido, e o resumo final o usa.
-5. **HUD com posições fixas em pixels:** em vídeo vertical (576 px), "TOTAL CONFIRMADO" é cortado e sobrepõe o FPS.
-6. **Valores específicos da máquina:** `CPU_NUM_THREADS=8` e a mensagem "AMD RYZEN 7 5700U" estão fixos no código.
-7. **Linha solta `aa`** no `.gitignore` (inofensiva).
+### Já resolvido (commit `ffd5699` e ajustes seguintes)
+* `CLASSES_OF_INTEREST = [18, 19]`: o Nelore passa a ser contado com o modelo COCO.
+* `supervision` travada em `<0.31.0` (o `sv.ByteTrack` será removido na 0.31) e `numpy` sem teto.
+* `counts` inicializado antes do loop (sem `NameError` com vídeo vazio).
+* HUD responsivo: quebra linha em vídeo vertical.
+* `CPU_NUM_THREADS` automático e sem menção fixa à CPU.
+* Janela ao vivo: `--show` / `SHOW_WINDOW` (espaço pausa, F tela cheia, Q/ESC sai).
+* `run.bat` (Windows) e `run.sh` (Linux): aceitam um vídeo como argumento ou usam o primeiro que existir entre `input_video.mp4`, `video-gado.mp4` e `gado-teste.mp4`, sempre com `--show`.
+
+### Pendências conhecidas
+1. **Troca de IDs com a câmera em movimento** infla o total (121 IDs criados para 72 confirmados no `video-gado.mp4`). O resumo final do `main.py` agora imprime "IDs Criados pelo Tracker" e a razão de fragmentação para medir isso.
+2. **Rebanho denso + drone alto + motion blur** (`gado.webm`, 1080x1920): subcontagem forte (23 confirmados com a config original, contra 60+ animais visíveis num único frame). Teste de ajuste (imgsz 1280, conf 0.25, iou 0.5, activation 0.25, lost buffer 90, matching 0.55): `gado.webm` foi de 23 para 48 confirmados, mas o `video-gado.mp4` inflou de 72 para 126, os IDs criados explodiram (104 → 1320) e a CPU ficou ~2,5x mais lenta. Mesmo ajustado, o `yolov8n` detecta só ~12 dos ~80 bois de um quadro denso. Por isso os ajustes **não** foram adotados: o limite é o modelo, não os parâmetros.
+3. **Modelo genérico:** trocar por um `best.pt` do Roboflow (gado aéreo) e ajustar `CLASSES_OF_INTEREST` conforme `model.names`.
+4. **Migrar o tracker** antes de atualizar a `supervision` para a 0.31+.
+5. **Linha solta `aa`** no `.gitignore` (inofensiva).
+
+### Próximos passos estruturais (não implementados; exigem módulo novo, não parâmetro)
+* **Tiling/SAHI:** fatiar o frame em pedaços sobrepostos, detectar em cada um e juntar as caixas. É a solução padrão para objetos pequenos em imagem grande (drone alto), sem precisar de um modelo maior.
+* **Modelo especializado:** peso pronto do Roboflow treinado em gado aéreo. Resolve a confusão Nelore/ovelha e melhora a separação de animais encostados.
+* **Compensação de movimento da câmera (CMC):** estimar a homografia entre frames consecutivos e corrigir a predição do Kalman antes do matching. Ataca a causa raiz da troca de IDs quando o drone gira ou translada rápido.
 
 ---
 

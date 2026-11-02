@@ -1,28 +1,37 @@
 @echo off
 REM ==============================================================================
-REM Script de Execucao do Sistema de Contagem Aerea de Bovinos
+REM Script de Execucao do Sistema de Contagem Aerea de Bovinos (modo apresentacao)
+REM Uso: run.bat [video.mp4]
+REM Padrao: input_video.mp4, video-gado.mp4 ou gado-teste.mp4 (o primeiro que existir)
 REM ==============================================================================
 
 cd /d "%~dp0"
 
 IF NOT EXIST ".venv\Scripts\python.exe" (
     echo [ERRO] Ambiente virtual .venv nao encontrado!
-    echo Execute: python -m venv .venv e instale os pacotes.
+    echo Execute: python -m venv .venv e .venv\Scripts\pip install -r requirements.txt
     pause
     exit /b 1
 )
 
-IF NOT EXIST "input_video.mp4" (
-    echo [AVISO] O arquivo 'input_video.mp4' nao foi encontrado na pasta.
-    echo Rodando com o video de teste sintetico 'test_drone_video.mp4'...
-    echo.
-    .\.venv\Scripts\python.exe main.py --input test_drone_video.mp4 --output test_annotated_output.mp4
-) ELSE (
-    echo [INICIANDO] Processando 'input_video.mp4'...
-    echo.
-    .\.venv\Scripts\python.exe main.py --input input_video.mp4 --output output_annotated_video.mp4 --show
+SET "VIDEO=%~1"
+IF "%VIDEO%"=="" IF EXIST "input_video.mp4" SET "VIDEO=input_video.mp4"
+IF "%VIDEO%"=="" IF EXIST "video-gado.mp4" SET "VIDEO=video-gado.mp4"
+IF "%VIDEO%"=="" IF EXIST "gado-teste.mp4" SET "VIDEO=gado-teste.mp4"
+
+IF "%VIDEO%"=="" (
+    echo [ERRO] Nenhum video encontrado.
+    echo Coloque 'input_video.mp4' na pasta ou rode: run.bat caminho\do\video.mp4
+    pause
+    exit /b 1
 )
 
+echo [INICIANDO] Processando '%VIDEO%' com exibicao ao vivo...
+echo [ESPACO] pausa ^| [F] tela cheia ^| [Q]/[ESC] encerra
 echo.
-echo [CONCLUIDO] Pressione qualquer tecla para sair...
+.\.venv\Scripts\python.exe main.py --input "%VIDEO%" --output output_annotated_video.mp4 --show
+
+echo.
+echo [CONCLUIDO] Video anotado salvo em output_annotated_video.mp4
+echo Pressione qualquer tecla para sair...
 pause >nul
