@@ -34,12 +34,13 @@
 
 ### 2.2 Identificação ([detector.py](detector.py))
 * **YOLO** ("You Only Look Once") é uma rede neural que olha a imagem inteira **uma vez** e devolve todos os objetos de uma só vez. Por isso é rápida.
-* Usamos o modelo `yolov8n.pt` ("n" = nano, o menor), pré-treinado no dataset **COCO**, que tem 80 classes, entre elas `cow` (19) e `sheep` (18).
-* Filtros aplicados ([config.py:34-40](config.py#L34-L40)):
+* Usamos o modelo **`yolo11ft.pt` (YOLOv11)**, já treinado por terceiros em imagens aéreas de gado (*transfer learning* — nenhuma rotulagem manual). Ele tem uma única classe: `cow`.
+* Filtros aplicados ([config.py:36-44](config.py#L36-L44)):
   * **Confiança ≥ 0,35:** descarta palpites fracos.
   * **IoU 0,45 (NMS):** quando duas caixas se sobrepõem demais sobre o mesmo animal, fica só a melhor.
-  * **Classes de interesse:** só passam as classes de animal configuradas.
-* A saída é convertida para `sv.Detections`, o formato da biblioteca *supervision* ([detector.py:65](detector.py#L65)).
+  * **Classe de interesse:** só passa a classe `cow`.
+* **SAHI opcional (`--slicing`):** fatia o quadro em janelas 640×640 com sobreposição e junta as caixas. Detecta melhor animais pequenos/distantes, mas é ~10× mais lento ([detector.py:49-58](detector.py#L49-L58)).
+* A saída é convertida para `sv.Detections`, o formato da biblioteca *supervision* ([detector.py:73](detector.py#L73)).
 
 ### 2.3 Rastreamento ([tracker.py](tracker.py))
 * A YOLO sozinha não sabe que o boi do quadro 10 é o mesmo do quadro 11. O **ByteTrack** resolve isso.
@@ -50,7 +51,7 @@
 ### 2.4 Contagem ([counter.py](counter.py))
 O sistema mostra duas métricas no HUD:
 * **NO QUADRO:** quantos animais estão visíveis agora.
-* **TOTAL CONFIRMADO:** quantos IDs diferentes já apareceram por pelo menos **15 quadros** ([config.py:63](config.py#L63)).
+* **TOTAL CONFIRMADO:** quantos IDs diferentes já apareceram por pelo menos **15 quadros consecutivos** ([config.py:80](config.py#L80)).
 
 O filtro de persistência:
 * **descarta ruído**: uma pedra detectada por 2 quadros nunca chega a 15;
@@ -100,10 +101,13 @@ python main.py --input video-gado.mp4 --output resultado.mp4 --show   # 3. proce
 
 | Teste | Resultado |
 | :--- | :--- |
-| Testes automáticos | 5 de 5 passaram |
-| `video-gado.mp4` (20 s, 611 quadros, gado Nelore, drone baixo e inclinado) | **72 bovinos confirmados** em ~55 s (~11 quadros/s, só CPU) |
-| Bois próximos à câmera | Detectados com confiança de 0,5 a 0,9 |
-| Bois distantes no fundo | Muitos não são detectados (ficam pequenos demais) |
+| Testes automáticos | **7 de 7 passaram** |
+| Modelo especializado `yolo11ft.pt` (YOLOv11, transfer learning) | ~8x mais detecções que o `yolov8n` no vídeo denso |
+| `video-gado.mp4` (20 s, 611 quadros, Nelore, drone baixo e inclinado) | **64 confirmados** (eram 72 com o COCO); ~6 quadros/s |
+| `gado.webm` (1080x1920, rebanho denso, drone alto) | **120 confirmados** (eram 23 com o COCO) |
+| SAHI (`--slicing`) no `gado.webm` | 18,9 → 20,9 detecções/frame, ~1,9 s/frame |
+| SAHI (`--slicing`) no `video-gado.mp4` | **66 confirmados** (eram 64), 227 IDs, 2,6 quadros/s |
+| Limitação restante | fragmentação de IDs (2,7–3,4) ainda distorce o total |
 
 ---
 
@@ -116,37 +120,38 @@ Não, de propósito. Usamos *transfer learning*: um modelo já treinado em milha
 Porque o mesmo boi aparece em centenas de quadros. Em 20 s de vídeo são 611 quadros, e somar contaria cada animal centenas de vezes. O rastreamento dá um ID único por animal e contamos IDs, não caixas.
 
 **"Por que 15 quadros?"**
-Equivale a meio segundo a 30 FPS. É curto o bastante para não perder um boi que aparece rapidamente e longo o bastante para descartar detecções falsas de 1 ou 2 quadros. É ajustável em [config.py:63](config.py#L63).
+Equivale a meio segundo a 30 FPS. É curto o bastante para não perder um boi que aparece rapidamente e longo o bastante para descartar detecções falsas de 1 ou 2 quadros. A persistência é **consecutiva**: se o ID some, a contagem recomeça. É ajustável em [config.py:80](config.py#L80).
 
 **"O que acontece se um boi passar debaixo de uma árvore?"**
 O ByteTrack mantém o ID guardado por 45 quadros (~1,5 s). Se o boi reaparecer nesse tempo, ele continua com o mesmo número.
 
-**"Por que vocês aceitam a classe ovelha?"**
-Foi um achado do teste. O modelo genérico identificava os Nelore (gado branco) como `sheep`. Com só `cow`, a contagem dava 0. Como não há ovelhas no vídeo, aceitar as duas classes é seguro. A solução definitiva é um modelo especializado em gado visto de drone (Roboflow Universe), que já existe pronto.
+**"Por que o modelo genérico confundia o gado?"**
+O COCO identifica os Nelore (gado branco) como `sheep` e, em voo alto, quase não via os animais (2,3 detecções/frame no vídeo denso). Trocamos por um modelo treinado em gado aéreo (`yolo11ft.pt`), que só tem a classe `cow` e detecta ~8× mais.
 
-**"O 72 está certo?"**
-É uma estimativa, e o número real provavelmente é menor. A câmera do drone se move bastante. Quando o rastreador perde um animal por mais de 1,5 s, ele volta com um ID novo e é contado de novo. Para medir a precisão exata seria preciso contar à mão e comparar. Esse é o próximo passo de validação.
+**"A contagem está certa?"**
+Ainda é uma estimativa. Com o modelo especializado, o `gado.webm` saltou de 23 para **120 confirmados** e o `video-gado.mp4` ficou em **64**. A fragmentação de IDs (o mesmo animal ganhando um número novo depois de perder o rastreio) ainda distorce o total. O próximo passo é compensação de movimento da câmera (CMC) e validação contra uma contagem manual.
 
 **"Roda em tempo real?"**
-Na CPU de um notebook, roda a ~11 FPS, enquanto o vídeo tem 30 FPS. Ou seja, processa em cerca de 3× o tempo do vídeo. O código já aceita GPU (CUDA), basta trocar `DEVICE` em [config.py:21](config.py#L21), e com GPU passaria do tempo real. Para contar um rebanho, processar depois do voo é suficiente.
+Na CPU do notebook, a ~6 FPS com o modelo especializado (o vídeo tem 30 FPS): processa em cerca de 5× o tempo do vídeo. O código já aceita GPU (CUDA), basta trocar `DEVICE` em [config.py:21](config.py#L21), e com GPU passaria do tempo real. Para contar um rebanho, processar depois do voo é suficiente.
 
 **"O que é IoU / NMS?"**
 IoU (*Intersection over Union*) mede quanto duas caixas se sobrepõem. O NMS (*Non-Maximum Suppression*) usa o IoU para apagar caixas duplicadas sobre o mesmo animal e deixar só a de maior confiança.
 
 **"Como vocês garantem que o código funciona?"**
-Com testes automáticos em [test_pipeline.py](test_pipeline.py): persistência (só conta após 15 quadros), ruído (2 quadros não conta), giro de 360° (3 animais por 50 quadros = 3, não 150) e HUD.
+Com testes automáticos em [test_pipeline.py](test_pipeline.py): persistência (só conta após 15 quadros), reset da persistência quando o ID some, ruído (2 quadros não conta), giro de 360° (3 animais por 50 quadros = 3, não 150), HUD e SAHI. Hoje são **7 testes, todos passando**.
 
 **"Por que separar em vários arquivos?"**
 Cada arquivo tem uma responsabilidade. Para trocar o modelo, mexemos só no detector. Para trocar a regra de contagem, só no counter. Isso facilita testar, manter e evoluir o código.
 
 **"Quais as limitações?"**
 * Troca de ID quando a câmera se move muito, o que infla o total.
-* Animais distantes ou pequenos não são detectados.
+* Animais muito pequenos/distantes ainda podem passar; o SAHI ajuda, mas é ~10x mais lento.
 * Animais muito juntos podem virar uma caixa só.
-* O modelo genérico confunde raças, como o Nelore classificado como ovelha.
+* Os modelos prontos foram treinados em nadir; no vídeo oblíquo o ganho é menor.
 
 **"Próximos passos?"**
-* Usar um modelo especializado em gado aéreo (Roboflow).
+* ~~Usar um modelo especializado em gado aéreo (Roboflow).~~ **Adotado:** `models/yolo11ft.pt` (YOLOv11, `cattle_graze_model`).
+* **Fontes encontradas (prontas para download):** Roboflow Universe → "aerial cows" (mAP@50 86.2%, P 88.8%, R 81.3%); ICAERUS-EU/UC3_Livestock_Monitoring → cow YOLOv8 (nadir, ~100 m); Hugging Face → `rmayormartins/yolov5-farm-cattle`, `xxilytoo/cattle_graze_model`, `cpraschl/bambi-models`. Testar via `--model` nos vídeos `video-gado.mp4` e `gado.webm`.
 * Validar a contagem contra uma contagem manual.
 * Compensar o movimento da câmera.
 * Usar GPU.

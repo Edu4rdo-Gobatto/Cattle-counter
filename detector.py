@@ -25,12 +25,14 @@ class CattleDetector:
         iou: float = config.IOU_THRESHOLD,
         imgsz: int = config.INFERENCE_IMAGE_SIZE,
         classes: Optional[List[int]] = config.CLASSES_OF_INTEREST,
+        use_slicing: bool = config.USE_SLICING,
     ):
         self.device = device
         self.confidence = confidence
         self.iou = iou
         self.imgsz = imgsz
         self.classes = classes
+        self.use_slicing = use_slicing
 
         # Otimização multithread para CPU Ryzen 7 5700U
         if self.device == "cpu" and num_threads > 0:
@@ -39,6 +41,36 @@ class CattleDetector:
         print(f"[Detector] Carregando modelo YOLO a partir de: {model_path} (Device: {self.device})")
         self.model = YOLO(model_path)
         print("[Detector] Modelo carregado com sucesso.")
+
+        # SAHI (InferenceSlicer): fatia o frame em janelas 640x640 com sobreposição
+        # e funde as caixas com NMS. Ajuda os animais pequenos, mas é ~8x mais lento.
+        self.slicer = None
+        if self.use_slicing:
+            self.slicer = sv.InferenceSlicer(
+                callback=self._predict,
+                slice_wh=config.SLICE_SIZE,
+                overlap_wh=config.SLICE_OVERLAP,
+                iou_threshold=self.iou,
+            )
+            print(
+                f"[Detector] SAHI ativado (fatia {config.SLICE_SIZE}px, "
+                f"overlap {config.SLICE_OVERLAP}px)"
+            )
+
+    def _predict(self, image: np.ndarray) -> sv.Detections:
+        """Executa inferência em uma imagem (frame inteiro ou fatia)."""
+        results = self.model.predict(
+            source=image,
+            conf=self.confidence,
+            iou=self.iou,
+            imgsz=self.imgsz,
+            device=self.device,
+            classes=self.classes,
+            verbose=False,
+        )[0]
+
+        # Conversão nativa e vetorizada para supervision
+        return sv.Detections.from_ultralytics(results)
 
     def detect(self, frame: np.ndarray) -> sv.Detections:
         """
@@ -51,17 +83,6 @@ class CattleDetector:
             supervision.Detections: Estrutura vetorizada contendo bounding boxes,
                                    confianças e classes filtradas.
         """
-        results = self.model.predict(
-            source=frame,
-            conf=self.confidence,
-            iou=self.iou,
-            imgsz=self.imgsz,
-            device=self.device,
-            classes=self.classes,
-            verbose=False,
-        )[0]
-
-        # Conversão nativa e vetorizada para supervision
-        detections = sv.Detections.from_ultralytics(results)
-
-        return detections
+        if self.slicer is not None:
+            return self.slicer(frame)
+        return self._predict(frame)

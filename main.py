@@ -113,12 +113,23 @@ def process_video(
     model_path: str = config.MODEL_WEIGHTS,
     enable_linezone: bool = config.ENABLE_LINEZONE,
     show_window: bool = config.SHOW_WINDOW,
+    use_slicing: bool = config.USE_SLICING,
 ):
     """Executa o pipeline completo de contagem aérea e gravação do vídeo anotado."""
     if not input_path.exists():
         raise FileNotFoundError(
             f"\n[ERRO CRÍTICO] Vídeo de entrada não encontrado em:\n{input_path}\n"
             f"Por favor, coloque o vídeo no diretório do projeto ou especifique via argumento --input."
+        )
+
+    model_file = Path(model_path)
+    if model_file.parent != Path(".") and not model_file.exists():
+        raise FileNotFoundError(
+            f"\n[ERRO] Modelo não encontrado em: {model_file}\n"
+            "Baixe o modelo especializado e salve em 'models/yolo11ft.pt':\n"
+            "  https://github.com/xxilytoo/cattle_graze_model\n"
+            "Ou rode com o modelo genérico: --model yolov8n.pt "
+            "(nesse caso ajuste CLASSES_OF_INTEREST para [18, 19] no config.py)."
         )
 
     print(f"\n{'='*70}")
@@ -128,6 +139,7 @@ def process_video(
     print(f"Vídeo de Saída:   {output_path}")
     print(f"Modelo:           {model_path}")
     print(f"Modo LineZone:    {'ATIVADO' if enable_linezone else 'DESATIVADO (Rastreamento por Persistência)'}")
+    print(f"Modo Fatiamento:  {'ATIVADO (SAHI)' if use_slicing else 'DESATIVADO'}")
 
     # Leitura dos metadados do vídeo com OpenCV
     cap = cv2.VideoCapture(str(input_path))
@@ -148,7 +160,7 @@ def process_video(
     writer = cv2.VideoWriter(str(output_path), fourcc, fps, (width, height))
 
     # Inicialização dos módulos do pipeline
-    detector = CattleDetector(model_path=model_path)
+    detector = CattleDetector(model_path=model_path, use_slicing=use_slicing)
     tracker = CattleTracker(frame_rate=int(fps))
     counter = CattleCounter(
         frame_width=width,
@@ -351,6 +363,12 @@ if __name__ == "__main__":
         default=config.SHOW_WINDOW,
         help="Exibe o vídeo anotado ao vivo numa janela enquanto processa.",
     )
+    parser.add_argument(
+        "--slicing",
+        action="store_true",
+        default=config.USE_SLICING,
+        help="Ativa o fatiamento SAHI (mais detecção de animais pequenos, ~8x mais lento).",
+    )
 
     args = parser.parse_args()
 
@@ -360,4 +378,5 @@ if __name__ == "__main__":
         model_path=args.model,
         enable_linezone=args.enable_linezone,
         show_window=args.show,
+        use_slicing=args.slicing,
     )

@@ -7,6 +7,7 @@ Valida a lógica matemática e espacial dos módulos:
 """
 
 import unittest
+from pathlib import Path
 import numpy as np
 import supervision as sv
 
@@ -103,6 +104,34 @@ class TestCattleSystem(unittest.TestCase):
         self.assertEqual(counts["active_in_frame"], 3)
         self.assertEqual(counts["confirmed_unique_total"], 3)
 
+    def test_persistence_resets_when_id_disappears(self):
+        """
+        A persistência é consecutiva: se o ID some do frame, o streak zera e o
+        animal só é confirmado após N frames consecutivos novamente.
+        """
+        xyxy = np.array([[100, 100, 150, 150]], dtype=np.float32)
+        dets = sv.Detections(
+            xyxy=xyxy,
+            confidence=np.array([0.85]),
+            tracker_id=np.array([7]),
+        )
+
+        # 4 frames consecutivos (abaixo do limiar de 5 do setUp)
+        for _ in range(4):
+            self.counter.update(dets)
+
+        # Um frame sem o animal zera a persistência
+        self.counter.update(sv.Detections.empty())
+
+        # Mais 4 frames: ainda não confirma
+        for _ in range(4):
+            counts = self.counter.update(dets)
+        self.assertEqual(counts["confirmed_unique_total"], 0)
+
+        # No 5º frame consecutivo após o reset, confirma
+        counts = self.counter.update(dets)
+        self.assertEqual(counts["confirmed_unique_total"], 1)
+
     def test_hud_rendering(self):
         """Garante que a renderização do HUD não corrompe o frame ou dimensões."""
         frame = np.zeros((self.height, self.width, 3), dtype=np.uint8)
@@ -123,6 +152,23 @@ class TestCattleSystem(unittest.TestCase):
         self.assertEqual(hud_frame.shape, (self.height, self.width, 3))
         # Verifica se a região do HUD possui pixels desenhados
         self.assertTrue(np.any(hud_frame[:85, :] > 0))
+
+
+class TestDetectorSlicing(unittest.TestCase):
+    @unittest.skipUnless(
+        Path(config.MODEL_WEIGHTS).exists(),
+        f"Modelo especializado não encontrado em {config.MODEL_WEIGHTS}",
+    )
+    def test_slicing_returns_empty_detections_on_black_frame(self):
+        """Garante que o SAHI está configurado e devolve sv.Detections sem erro."""
+        from detector import CattleDetector
+
+        detector = CattleDetector(use_slicing=True)
+        frame = np.zeros((1080, 1920, 3), dtype=np.uint8)
+        detections = detector.detect(frame)
+
+        self.assertIsInstance(detections, sv.Detections)
+        self.assertEqual(len(detections), 0)
 
 
 if __name__ == "__main__":

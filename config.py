@@ -24,8 +24,12 @@ DEVICE = "cpu"
 CPU_NUM_THREADS = max(1, (os.cpu_count() or 2) // 2)
 
 # Caminho ou nome do modelo YOLO
-# Pode ser 'yolov8n.pt', 'yolo11n.pt' ou arquivo customizado treinado para visão aérea (ex: 'best.pt')
-MODEL_WEIGHTS = "yolov8n.pt"
+# Modelo especializado em gado aéreo (transfer learning, pesos prontos da internet):
+# https://github.com/xxilytoo/cattle_graze_model (YOLOv11 fine-tuned, classe 0 = cow)
+# Benchmark local: ~8x mais detecções que o yolov8n no vídeo denso (gado.webm).
+MODEL_WEIGHTS = str(BASE_DIR / "models" / "yolo11ft.pt")
+
+# Alternativa genérica (COCO): "yolov8n.pt" — nesse caso use CLASSES_OF_INTEREST = [18, 19]
 
 # Resolução de inferência (640 para alta velocidade; 1280 para pequenos bovinos a grande altitude)
 INFERENCE_IMAGE_SIZE = 640
@@ -34,10 +38,23 @@ INFERENCE_IMAGE_SIZE = 640
 CONFIDENCE_THRESHOLD = 0.35  # Limiar de confiança mínima para considerar um animal
 IOU_THRESHOLD = 0.45         # Limiar de Non-Maximum Suppression (NMS)
 
-# No modelo COCO padrão do YOLO:
-# Classe 19 = 'cow' (bovino) | Classe 18 = 'sheep' (o COCO classifica o Nelore branco como ovelha)
-# Se estiver usando um modelo customizado (onde classe 0 é gado), mude para [0] ou None para todas.
-CLASSES_OF_INTEREST = [18, 19]
+# O modelo especializado usa apenas a classe 0 = 'cow'.
+# Para o modelo COCO (yolov8n.pt), troque por [18, 19] (sheep + cow).
+CLASSES_OF_INTEREST = [0]
+
+# ==============================================================================
+# 2.1 DETECÇÃO POR FATIAS (SAHI / INFERENCE SLICER)
+# ==============================================================================
+# Divide cada frame em fatias sobrepostas e detecta em cada uma. Melhora a
+# detecção de animais pequenos/distantes em voos altos, ao custo de ~8x mais
+# inferências. Desligado por padrão para manter a demo ao vivo rápida.
+USE_SLICING = False
+
+# Lado de cada fatia, em pixels (igual ao INFERENCE_IMAGE_SIZE)
+SLICE_SIZE = 640
+
+# Sobreposição entre fatias, em pixels (~20% de 640 reduz animais cortados na borda)
+SLICE_OVERLAP = 128
 
 # ==============================================================================
 # 3. RASTREAMENTO ESPACIAL (BYTETRACK VIA SUPERVISION)

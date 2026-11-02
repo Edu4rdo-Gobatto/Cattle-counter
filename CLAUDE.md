@@ -52,7 +52,7 @@ Os módulos estão **na raiz** do projeto:
 
 **Lógica de contagem (diferencial do projeto):** um `tracker_id` só entra no "TOTAL CONFIRMADO" depois de aparecer em `MIN_FRAMES_PERSISTENCE` (15) frames. Isso filtra falsos positivos (pedras, sombras) e torna a contagem imune a giros de 360° do drone, porque os mesmos IDs não são somados de novo. A LineZone (in/out) é opcional (`ENABLE_LINEZONE`) e serve para voos retilíneos em corredor.
 
-**Parâmetros principais (`config.py`):** `MODEL_WEIGHTS="yolov8n.pt"`, `CONFIDENCE_THRESHOLD=0.35`, `IOU_THRESHOLD=0.45`, `CLASSES_OF_INTEREST=[18, 19]` (sheep + cow), `TRACK_ACTIVATION_THRESHOLD=0.30`, `LOST_TRACK_BUFFER=45`, `MINIMUM_MATCHING_THRESHOLD=0.70`, `INFERENCE_IMAGE_SIZE=640`, `DEVICE="cpu"`, `CPU_NUM_THREADS` = metade de `os.cpu_count()`, `SHOW_WINDOW=False`.
+**Parâmetros principais (`config.py`):** `MODEL_WEIGHTS=models/yolo11ft.pt` (YOLOv11 especializado, 1 classe: `cow`), `CLASSES_OF_INTEREST=[0]`, `USE_SLICING=False` (`SLICE_SIZE=640`, `SLICE_OVERLAP=128`), `CONFIDENCE_THRESHOLD=0.35`, `IOU_THRESHOLD=0.45`, `TRACK_ACTIVATION_THRESHOLD=0.30`, `LOST_TRACK_BUFFER=45`, `MINIMUM_MATCHING_THRESHOLD=0.70`, `INFERENCE_IMAGE_SIZE=640`, `DEVICE="cpu"`, `CPU_NUM_THREADS` = metade de `os.cpu_count()`, `SHOW_WINDOW=False`. Para voltar ao COCO: `MODEL_WEIGHTS="yolov8n.pt"` e `CLASSES_OF_INTEREST=[18, 19]`.
 
 ### Como executar
 ```bash
@@ -63,15 +63,24 @@ python main.py --input video-gado.mp4 --output saida.mp4 [--show]
 ```
 O roteiro da apresentação em sala está em `APRESENTACAO.md`.
 
-### Resultados dos testes (07/10/2026)
-* `unittest`: 5/5 OK.
-* **Vídeo sintético:** roda, mas conta 0. O `yolov8n` (COCO) vê as elipses como "frisbee". Esse vídeo não serve para validar a detecção.
+### Resultados dos testes (02/11/2026)
+* `unittest`: **7/7 OK** (contador com persistência consecutiva, SAHI e HUD).
+* **Vídeo sintético:** roda, mas conta 0. Modelos de gado não detectam as elipses. Esse vídeo não serve para validar a detecção.
 * **`video-gado.mp4`** (real, TikTok @dezodrones, 576x1024 vertical, 20s, drone baixo e oblíquo, gado Nelore branco):
-  * Com `CLASSES_OF_INTEREST=[19]`: **0 bovinos.** O COCO classifica Nelore como `sheep` (classe 18).
-  * Com `[18, 19]`: **72 confirmados**, ~11 FPS na CPU. Os animais próximos são detectados (conf 0,5–0,9), os distantes no fundo não. O valor provavelmente está **acima do real**: a câmera se move muito e foram criados 121 IDs (trocas de ID). Os ~20 frames finais são a vinheta do TikTok, sem bois.
+  * **Linha de base COCO (`yolov8n`, `[18, 19]`):** **72 confirmados**, ~11 FPS. Os animais próximos são detectados (conf 0,5–0,9), os distantes no fundo não. Valor provavelmente **acima do real**: 121 IDs criados. (~20 frames finais são a vinheta do TikTok, sem bois.)
+  * **Modelo especializado:** **64 confirmados**, 175 IDs, ~6 FPS.
+
+### Modelo especializado integrado (02/11/2026)
+* **Modelo adotado:** `models/yolo11ft.pt` — YOLOv11 do repo `xxilytoo/cattle_graze_model` (1 classe: `cow`), baixado pronto da internet (transfer learning, sem rotulagem manual).
+* **Benchmark (40 frames amostrados, conf 0.35, CPU):** `video-gado.mp4` 12,5 → **13,3 detecções/frame** (0,37 → 0,19 s/frame); `gado.webm` 2,3 → **18,9 detecções/frame**.
+* **Pipeline completo:** `gado.webm` **23 → 120 confirmados** (104 → 398 IDs); `video-gado.mp4` **72 → 64 confirmados** (146 → 175 IDs).
+* **SAHI (`--slicing`) no `gado.webm`:** 18,9 → 20,9 detecções/frame, mas ~1,9 s/frame (≈10x mais lento); desligado por padrão.
+* **SAHI (`--slicing`) no `video-gado.mp4` (pipeline completo):** 66 confirmados (vs 64 sem SAHI), 227 IDs, fragmentação 3,44 e 2,58 FPS. Ganho pequeno para ~4x mais tempo — por isso fica opcional.
+* **Contador:** persistência agora é **consecutiva** (o streak zera quando o ID some do frame); total de frames vistos continua como diagnóstico.
+* **Conclusão:** o modelo especializado resolveu a subcontagem do rebanho denso (5x). A fragmentação de IDs (2,7–3,3) continua sendo o gargalo do `video-gado.mp4`.
 
 ### Já resolvido (commit `ffd5699` e ajustes seguintes)
-* `CLASSES_OF_INTEREST = [18, 19]`: o Nelore passa a ser contado com o modelo COCO.
+* ~~`CLASSES_OF_INTEREST = [18, 19]`~~ (histórico COCO): agora `[0]` com o modelo especializado.
 * `supervision` travada em `<0.31.0` (o `sv.ByteTrack` será removido na 0.31) e `numpy` sem teto.
 * `counts` inicializado antes do loop (sem `NameError` com vídeo vazio).
 * HUD responsivo: quebra linha em vídeo vertical.
@@ -81,15 +90,15 @@ O roteiro da apresentação em sala está em `APRESENTACAO.md`.
 
 ### Pendências conhecidas
 1. **Troca de IDs com a câmera em movimento** infla o total (121 IDs criados para 72 confirmados no `video-gado.mp4`). O resumo final do `main.py` agora imprime "IDs Criados pelo Tracker" e a razão de fragmentação para medir isso.
-2. **Rebanho denso + drone alto + motion blur** (`gado.webm`, 1080x1920): subcontagem forte (23 confirmados com a config original, contra 60+ animais visíveis num único frame). Teste de ajuste (imgsz 1280, conf 0.25, iou 0.5, activation 0.25, lost buffer 90, matching 0.55): `gado.webm` foi de 23 para 48 confirmados, mas o `video-gado.mp4` inflou de 72 para 126, os IDs criados explodiram (104 → 1320) e a CPU ficou ~2,5x mais lenta. Mesmo ajustado, o `yolov8n` detecta só ~12 dos ~80 bois de um quadro denso. Por isso os ajustes **não** foram adotados: o limite é o modelo, não os parâmetros.
-3. **Modelo genérico:** trocar por um `best.pt` do Roboflow (gado aéreo) e ajustar `CLASSES_OF_INTEREST` conforme `model.names`.
+2. **Rebanho denso + drone alto + motion blur** (`gado.webm`, 1080x1920): o `yolov8n` subcontava fortemente (23 confirmados para 60+ animais visíveis num quadro). Com o modelo especializado `yolo11ft.pt` a contagem subiu para **120 confirmados** (~8x mais detecções/frame), mas a fragmentação ainda infla o total (398 IDs). Ajustes de limiar no COCO já testados (imgsz 1280, conf 0.25 etc.) não foram adotados: o limite era o modelo.
+3. **Modelo genérico:** ~~trocar por um `best.pt` do Roboflow~~ **Resolvido:** adotado `models/yolo11ft.pt` (YOLOv11, `xxilytoo/cattle_graze_model`, classe 0 = `cow`), baixado pronto (transfer learning, sem rotulagem).
 4. **Migrar o tracker** antes de atualizar a `supervision` para a 0.31+.
 5. **Linha solta `aa`** no `.gitignore` (inofensiva).
 
-### Próximos passos estruturais (não implementados; exigem módulo novo, não parâmetro)
-* **Tiling/SAHI:** fatiar o frame em pedaços sobrepostos, detectar em cada um e juntar as caixas. É a solução padrão para objetos pequenos em imagem grande (drone alto), sem precisar de um modelo maior.
-* **Modelo especializado:** peso pronto do Roboflow treinado em gado aéreo. Resolve a confusão Nelore/ovelha e melhora a separação de animais encostados.
-* **Compensação de movimento da câmera (CMC):** estimar a homografia entre frames consecutivos e corrigir a predição do Kalman antes do matching. Ataca a causa raiz da troca de IDs quando o drone gira ou translada rápido.
+### Próximos passos estruturais
+* **SAHI (implementado, opcional):** `--slicing` fatia o frame em janelas 640x640 com overlap e funde as caixas com NMS. No `gado.webm` subiu de 18,9 para 20,9 detecções/frame, mas custa ~1,9 s/frame (≈10x mais lento); por isso `USE_SLICING=False` por padrão.
+* **Modelo especializado (implementado):** adotado `models/yolo11ft.pt` (YOLOv11, repo `xxilytoo/cattle_graze_model`), baixado pronto — sem rotulagem manual. Benchmark: `gado.webm` 2,3 → 18,9 detecções/frame; `video-gado.mp4` 12,5 → 13,3 (e 2x mais rápido). Fontes alternativas testadas: Roboflow "aerial cows" (mAP@50 86.2%), ICAERUS cow YOLOv8 nadir (P 0.93/R 0.85 no v2, mas falhou no vídeo oblíquo).
+* **Compensação de movimento da câmera (CMC):** estimar a homografia entre frames consecutivos e corrigir a predição do Kalman antes do matching. Ataca a causa raiz da troca de IDs (fragmentação 2,7–3,3 ainda observada).
 
 ---
 

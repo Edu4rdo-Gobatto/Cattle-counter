@@ -30,7 +30,12 @@ class CattleCounter:
         self.min_persistence = min_persistence
         self.enable_linezone = enable_linezone
 
+        # Dicionário para rastrear a sequência atual de frames de cada ID
+        # (persistência consecutiva: reseta quando o ID some do frame)
+        self.id_frame_streaks: Dict[int, int] = {}
+
         # Dicionário para rastrear há quantos frames cada ID foi observado
+        # (usado em diagnósticos de fragmentação no pipeline principal)
         self.id_frame_counts: Dict[int, int] = {}
 
         # Conjunto de IDs confirmados que atingiram o limiar de persistência
@@ -76,14 +81,26 @@ class CattleCounter:
 
         if tracked_detections.tracker_id is not None:
             for tracker_id in tracked_detections.tracker_id:
-                active_ids.add(int(tracker_id))
+                tracker_id = int(tracker_id)
+                active_ids.add(tracker_id)
+
+                # Total de frames em que o ID já foi visto (diagnóstico)
                 self.id_frame_counts[tracker_id] = (
                     self.id_frame_counts.get(tracker_id, 0) + 1
                 )
 
-                # Se o animal persistiu pelo tempo mínimo necessário, é computado
-                if self.id_frame_counts[tracker_id] >= self.min_persistence:
-                    self.confirmed_unique_ids.add(int(tracker_id))
+                # Persistência CONSECUTIVA: o streak zera quando o ID some do frame
+                streak = self.id_frame_streaks.get(tracker_id, 0) + 1
+                self.id_frame_streaks[tracker_id] = streak
+
+                # Só confirma o animal após N frames consecutivos de rastreamento
+                if streak >= self.min_persistence:
+                    self.confirmed_unique_ids.add(tracker_id)
+
+        # Reseta o streak dos IDs que não apareceram neste frame
+        for tracker_id in self.id_frame_streaks:
+            if tracker_id not in active_ids:
+                self.id_frame_streaks[tracker_id] = 0
 
         # Atualiza a LineZone caso esteja habilitada
         line_in = 0
