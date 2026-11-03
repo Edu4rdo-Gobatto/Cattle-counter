@@ -36,8 +36,8 @@
 * **YOLO** ("You Only Look Once") é uma rede neural que olha a imagem inteira **uma vez** e devolve todos os objetos de uma só vez. Por isso é rápida.
 * Usamos o modelo **`yolo11ft.pt` (YOLOv11)**, já treinado por terceiros em imagens aéreas de gado (*transfer learning* — nenhuma rotulagem manual). Ele tem uma única classe: `cow`.
 * Filtros aplicados ([config.py:36-44](config.py#L36-L44)):
-  * **Confiança ≥ 0,35:** descarta palpites fracos.
-  * **IoU 0,45 (NMS):** quando duas caixas se sobrepõem demais sobre o mesmo animal, fica só a melhor.
+  * **Confiança ≥ 0,25:** descarta palpites fracos sem perder animais distantes.
+  * **IoU 0,60 (NMS):** quando duas caixas se sobrepõem demais sobre o mesmo animal, fica só a melhor — o valor alto preserva animais agrupados.
   * **Classe de interesse:** só passa a classe `cow`.
 * **SAHI opcional (`--slicing`):** fatia o quadro em janelas 640×640 com sobreposição e junta as caixas. Detecta melhor animais pequenos/distantes, mas é ~10× mais lento ([detector.py:49-58](detector.py#L49-L58)).
 * A saída é convertida para `sv.Detections`, o formato da biblioteca *supervision* ([detector.py:73](detector.py#L73)).
@@ -103,8 +103,9 @@ python main.py --input video-gado.mp4 --output resultado.mp4 --show   # 3. proce
 | :--- | :--- |
 | Testes automáticos | **7 de 7 passaram** |
 | Modelo especializado `yolo11ft.pt` (YOLOv11, transfer learning) | ~8x mais detecções que o `yolov8n` no vídeo denso |
-| `video-gado.mp4` (20 s, 611 quadros, Nelore, drone baixo e inclinado) | **64 confirmados** (eram 72 com o COCO); ~6 quadros/s |
-| `gado.webm` (1080x1920, rebanho denso, drone alto) | **120 confirmados** (eram 23 com o COCO) |
+| `video-gado.mp4` (20 s, 611 quadros, Nelore, drone baixo e inclinado) | **69 confirmados** (eram 72 com o COCO); ~5,5 quadros/s |
+| `gado.webm` (1080x1920, rebanho denso, drone alto) | **133 confirmados** (eram 23 com o COCO) |
+| Ajuste distantes/agrupados (`conf 0.25`, `iou 0.60`) | +8–11% na contagem, mesma velocidade |
 | SAHI (`--slicing`) no `gado.webm` | 18,9 → 20,9 detecções/frame, ~1,9 s/frame |
 | SAHI (`--slicing`) no `video-gado.mp4` | **66 confirmados** (eram 64), 227 IDs, 2,6 quadros/s |
 | Limitação restante | fragmentação de IDs (2,7–3,4) ainda distorce o total |
@@ -129,10 +130,10 @@ O ByteTrack mantém o ID guardado por 45 quadros (~1,5 s). Se o boi reaparecer n
 O COCO identifica os Nelore (gado branco) como `sheep` e, em voo alto, quase não via os animais (2,3 detecções/frame no vídeo denso). Trocamos por um modelo treinado em gado aéreo (`yolo11ft.pt`), que só tem a classe `cow` e detecta ~8× mais.
 
 **"A contagem está certa?"**
-Ainda é uma estimativa. Com o modelo especializado, o `gado.webm` saltou de 23 para **120 confirmados** e o `video-gado.mp4` ficou em **64**. A fragmentação de IDs (o mesmo animal ganhando um número novo depois de perder o rastreio) ainda distorce o total. O próximo passo é compensação de movimento da câmera (CMC) e validação contra uma contagem manual.
+Ainda é uma estimativa. Com o modelo especializado, o `gado.webm` saltou de 23 para **133 confirmados** e o `video-gado.mp4` ficou em **69**. A fragmentação de IDs (o mesmo animal ganhando um número novo depois de perder o rastreio) ainda distorce o total. O próximo passo é compensação de movimento da câmera (CMC) e validação contra uma contagem manual.
 
 **"Roda em tempo real?"**
-Na CPU do notebook, a ~6 FPS com o modelo especializado (o vídeo tem 30 FPS): processa em cerca de 5× o tempo do vídeo. O código já aceita GPU (CUDA), basta trocar `DEVICE` em [config.py:21](config.py#L21), e com GPU passaria do tempo real. Para contar um rebanho, processar depois do voo é suficiente.
+Na CPU do notebook, a ~5 FPS com o modelo especializado (o vídeo tem 30 FPS): processa em cerca de 6× o tempo do vídeo. O código já aceita GPU (CUDA), basta trocar `DEVICE` em [config.py:21](config.py#L21), e com GPU passaria do tempo real. Para contar um rebanho, processar depois do voo é suficiente.
 
 **"O que é IoU / NMS?"**
 IoU (*Intersection over Union*) mede quanto duas caixas se sobrepõem. O NMS (*Non-Maximum Suppression*) usa o IoU para apagar caixas duplicadas sobre o mesmo animal e deixar só a de maior confiança.
@@ -146,7 +147,7 @@ Cada arquivo tem uma responsabilidade. Para trocar o modelo, mexemos só no dete
 **"Quais as limitações?"**
 * Troca de ID quando a câmera se move muito, o que infla o total.
 * Animais muito pequenos/distantes ainda podem passar; o SAHI ajuda, mas é ~10x mais lento.
-* Animais muito juntos podem virar uma caixa só.
+* Animais muito juntos ainda podem virar uma caixa só (mitigado com `iou` maior).
 * Os modelos prontos foram treinados em nadir; no vídeo oblíquo o ganho é menor.
 
 **"Próximos passos?"**

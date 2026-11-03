@@ -35,8 +35,10 @@ MODEL_WEIGHTS = str(BASE_DIR / "models" / "yolo11ft.pt")
 INFERENCE_IMAGE_SIZE = 640
 
 # Limiares de detecção
-CONFIDENCE_THRESHOLD = 0.35  # Limiar de confiança mínima para considerar um animal
-IOU_THRESHOLD = 0.45         # Limiar de Non-Maximum Suppression (NMS)
+# conf 0.25 + iou 0.60: calibrado nos dois vídeos para pegar animais distantes e
+# preservar caixas sobrepostas de bovinos agrupados (mesma velocidade, +8-11% na contagem).
+CONFIDENCE_THRESHOLD = 0.25  # Limiar de confiança mínima para considerar um animal
+IOU_THRESHOLD = 0.60         # IoU do NMS (maior preserva animais agrupados)
 
 # O modelo especializado usa apenas a classe 0 = 'cow'.
 # Para o modelo COCO (yolov8n.pt), troque por [18, 19] (sheep + cow).

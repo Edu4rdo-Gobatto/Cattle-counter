@@ -114,6 +114,9 @@ def process_video(
     enable_linezone: bool = config.ENABLE_LINEZONE,
     show_window: bool = config.SHOW_WINDOW,
     use_slicing: bool = config.USE_SLICING,
+    confidence: float = config.CONFIDENCE_THRESHOLD,
+    iou: float = config.IOU_THRESHOLD,
+    imgsz: int = config.INFERENCE_IMAGE_SIZE,
 ):
     """Executa o pipeline completo de contagem aérea e gravação do vídeo anotado."""
     if not input_path.exists():
@@ -138,6 +141,7 @@ def process_video(
     print(f"Vídeo de Entrada: {input_path}")
     print(f"Vídeo de Saída:   {output_path}")
     print(f"Modelo:           {model_path}")
+    print(f"Confiança / IoU:  {confidence:.2f} / {iou:.2f} | imgsz {imgsz}")
     print(f"Modo LineZone:    {'ATIVADO' if enable_linezone else 'DESATIVADO (Rastreamento por Persistência)'}")
     print(f"Modo Fatiamento:  {'ATIVADO (SAHI)' if use_slicing else 'DESATIVADO'}")
 
@@ -160,7 +164,13 @@ def process_video(
     writer = cv2.VideoWriter(str(output_path), fourcc, fps, (width, height))
 
     # Inicialização dos módulos do pipeline
-    detector = CattleDetector(model_path=model_path, use_slicing=use_slicing)
+    detector = CattleDetector(
+        model_path=model_path,
+        use_slicing=use_slicing,
+        confidence=confidence,
+        iou=iou,
+        imgsz=imgsz,
+    )
     tracker = CattleTracker(frame_rate=int(fps))
     counter = CattleCounter(
         frame_width=width,
@@ -369,6 +379,24 @@ if __name__ == "__main__":
         default=config.USE_SLICING,
         help="Ativa o fatiamento SAHI (mais detecção de animais pequenos, ~8x mais lento).",
     )
+    parser.add_argument(
+        "--conf",
+        type=float,
+        default=config.CONFIDENCE_THRESHOLD,
+        help="Confiança mínima da detecção (menor = pega animais distantes, mas gera ruído).",
+    )
+    parser.add_argument(
+        "--iou",
+        type=float,
+        default=config.IOU_THRESHOLD,
+        help="IoU do NMS (maior = preserva caixas sobrepostas de animais agrupados).",
+    )
+    parser.add_argument(
+        "--imgsz",
+        type=int,
+        default=config.INFERENCE_IMAGE_SIZE,
+        help="Resolução de inferência (maior = detecta animais pequenos/distantes, mais lento).",
+    )
 
     args = parser.parse_args()
 
@@ -379,4 +407,7 @@ if __name__ == "__main__":
         enable_linezone=args.enable_linezone,
         show_window=args.show,
         use_slicing=args.slicing,
+        confidence=args.conf,
+        iou=args.iou,
+        imgsz=args.imgsz,
     )

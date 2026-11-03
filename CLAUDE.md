@@ -52,14 +52,14 @@ Os módulos estão **na raiz** do projeto:
 
 **Lógica de contagem (diferencial do projeto):** um `tracker_id` só entra no "TOTAL CONFIRMADO" depois de aparecer em `MIN_FRAMES_PERSISTENCE` (15) frames. Isso filtra falsos positivos (pedras, sombras) e torna a contagem imune a giros de 360° do drone, porque os mesmos IDs não são somados de novo. A LineZone (in/out) é opcional (`ENABLE_LINEZONE`) e serve para voos retilíneos em corredor.
 
-**Parâmetros principais (`config.py`):** `MODEL_WEIGHTS=models/yolo11ft.pt` (YOLOv11 especializado, 1 classe: `cow`), `CLASSES_OF_INTEREST=[0]`, `USE_SLICING=False` (`SLICE_SIZE=640`, `SLICE_OVERLAP=128`), `CONFIDENCE_THRESHOLD=0.35`, `IOU_THRESHOLD=0.45`, `TRACK_ACTIVATION_THRESHOLD=0.30`, `LOST_TRACK_BUFFER=45`, `MINIMUM_MATCHING_THRESHOLD=0.70`, `INFERENCE_IMAGE_SIZE=640`, `DEVICE="cpu"`, `CPU_NUM_THREADS` = metade de `os.cpu_count()`, `SHOW_WINDOW=False`. Para voltar ao COCO: `MODEL_WEIGHTS="yolov8n.pt"` e `CLASSES_OF_INTEREST=[18, 19]`.
+**Parâmetros principais (`config.py`):** `MODEL_WEIGHTS=models/yolo11ft.pt` (YOLOv11 especializado, 1 classe: `cow`), `CLASSES_OF_INTEREST=[0]`, `USE_SLICING=False` (`SLICE_SIZE=640`, `SLICE_OVERLAP=128`), `CONFIDENCE_THRESHOLD=0.25`, `IOU_THRESHOLD=0.60` (calibrados para animais distantes/agrupados), `TRACK_ACTIVATION_THRESHOLD=0.30`, `LOST_TRACK_BUFFER=45`, `MINIMUM_MATCHING_THRESHOLD=0.70`, `INFERENCE_IMAGE_SIZE=640`, `DEVICE="cpu"`, `CPU_NUM_THREADS` = metade de `os.cpu_count()`, `SHOW_WINDOW=False`. Para voltar ao COCO: `MODEL_WEIGHTS="yolov8n.pt"` e `CLASSES_OF_INTEREST=[18, 19]`.
 
 ### Como executar
 ```bash
 .\run.bat                      # Windows: demo com janela ao vivo (./run.sh no Linux)
 .venv\Scripts\activate
 python -m unittest test_pipeline -v
-python main.py --input video-gado.mp4 --output saida.mp4 [--show]
+python main.py --input video-gado.mp4 --output saida.mp4 [--show] [--slicing] [--conf 0.25] [--iou 0.60] [--imgsz 640]
 ```
 O roteiro da apresentação em sala está em `APRESENTACAO.md`.
 
@@ -73,9 +73,10 @@ O roteiro da apresentação em sala está em `APRESENTACAO.md`.
 ### Modelo especializado integrado (02/11/2026)
 * **Modelo adotado:** `models/yolo11ft.pt` — YOLOv11 do repo `xxilytoo/cattle_graze_model` (1 classe: `cow`), baixado pronto da internet (transfer learning, sem rotulagem manual).
 * **Benchmark (40 frames amostrados, conf 0.35, CPU):** `video-gado.mp4` 12,5 → **13,3 detecções/frame** (0,37 → 0,19 s/frame); `gado.webm` 2,3 → **18,9 detecções/frame**.
-* **Pipeline completo:** `gado.webm` **23 → 120 confirmados** (104 → 398 IDs); `video-gado.mp4` **72 → 64 confirmados** (146 → 175 IDs).
+* **Pipeline completo:** `gado.webm` **23 → 133 confirmados** (104 → 439 IDs); `video-gado.mp4` **72 → 69 confirmados** (146 → 180 IDs).
+* **Calibração distantes/agrupados (02/11/2026):** `conf 0.35→0.25` e `iou 0.45→0.60` (mesma velocidade). Benchmark: +16% detecções/frame no `gado.webm` (18,2 → 21,2) e +14% no `video-gado.mp4` (12,5 → 14,2); contagem final +11% e +8%. `imgsz=960` rende mais (+34% no denso), mas dobra o tempo e ficou opcional via `--imgsz`.
 * **SAHI (`--slicing`) no `gado.webm`:** 18,9 → 20,9 detecções/frame, mas ~1,9 s/frame (≈10x mais lento); desligado por padrão.
-* **SAHI (`--slicing`) no `video-gado.mp4` (pipeline completo):** 66 confirmados (vs 64 sem SAHI), 227 IDs, fragmentação 3,44 e 2,58 FPS. Ganho pequeno para ~4x mais tempo — por isso fica opcional.
+* **SAHI (`--slicing`) no `video-gado.mp4` (pipeline completo, limiares antigos):** 66 confirmados (vs 64 sem SAHI), 227 IDs, fragmentação 3,44 e 2,58 FPS. Ganho pequeno para ~4x mais tempo — por isso fica opcional.
 * **Contador:** persistência agora é **consecutiva** (o streak zera quando o ID some do frame); total de frames vistos continua como diagnóstico.
 * **Conclusão:** o modelo especializado resolveu a subcontagem do rebanho denso (5x). A fragmentação de IDs (2,7–3,3) continua sendo o gargalo do `video-gado.mp4`.
 

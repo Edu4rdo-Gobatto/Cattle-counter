@@ -42,16 +42,25 @@ O comitê técnico multidisciplinar estruturou a aplicação para o hardware **A
 
 ### ✅ Modelo adotado: `yolo11ft.pt` (YOLOv11 — cattle_graze_model)
 
-Benchmark local (40 frames amostrados, `conf=0.35`, CPU):
+Benchmark local (40 frames amostrados, `conf=0.35`, `iou=0.45`, CPU):
 
 | Vídeo | yolov8n (COCO) | **yolo11ft** | yolo11ft + SAHI |
 | :--- | :--- | :--- | :--- |
 | `video-gado.mp4` (oblíquo) | 12,5 detecções/frame | **13,3** (0,19 s/frame) | 14,1 (0,49 s/frame) |
 | `gado.webm` (denso) | 2,3 detecções/frame | **18,9** | 20,9 (1,89 s/frame) |
 
-Pipeline completo: `gado.webm` **23 → 120** confirmados; `video-gado.mp4` 72 → 64 (com `--slicing`: 66). A fragmentação de IDs ainda é o gargalo.
+Pipeline completo: `gado.webm` **23 → 133** confirmados; `video-gado.mp4` 72 → 69 (com `--slicing`: 66, nos limiares antigos). A fragmentação de IDs ainda é o gargalo.
 
 **Onde fica:** `models/yolo11ft.pt` — já configurado em `config.MODEL_WEIGHTS`. Instruções de download em [`models/README.md`](models/README.md).
+
+**Calibração para distantes/agrupados:** `CONFIDENCE_THRESHOLD=0.25` e `IOU_THRESHOLD=0.60` (mesma velocidade, +8–11% na contagem). Ajuste fino sem editar código:
+
+```bash
+python main.py --input gado.webm --output saida.mp4 --conf 0.25 --iou 0.60 --imgsz 640
+# --conf menor  -> pega animais distantes (e mais ruído)
+# --iou maior   -> preserva caixas de animais agrupados
+# --imgsz maior -> detecta melhor animais pequenos (mais lento)
+```
 
 **Como testar:**
 
