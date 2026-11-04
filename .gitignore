@@ -26,6 +26,11 @@ data/datasets/
 data/input/
 data/output/
 
+# Cache de detecções e imagens de validação (regeneráveis; CSVs e
+# ground_truth.json são mantidos por serem evidência dos experimentos)
+cache/
+validation/*.png
+
 # Vídeos e gravações (arquivos binários pesados)
 *.mp4
 *.avi

@@ -72,7 +72,12 @@ TRACK_ACTIVATION_THRESHOLD = 0.30
 LOST_TRACK_BUFFER = 45
 
 # Limiar de IoU mínimo para associar detecções a tracks existentes no filtro de Kalman
-MINIMUM_MATCHING_THRESHOLD = 0.70
+# 0.70 (IoU > 0.30) era estrito demais para bovinos pequenos e parecidos: o
+# tracker perdia o animal por 1 frame e criava um ID novo. O grid de tune.py
+# (02/11) mostrou fragmentação 2,31 -> 1,33 e IDs-lixo 10 -> 1 com 0.90
+# (IoU > 0.10); 0.90 e 0.95 empatam, então fica o menos arriscado (evita fundir
+# dois bois vizinhos).
+MINIMUM_MATCHING_THRESHOLD = 0.90
 
 # ==============================================================================
 # 4. LÓGICA DE CONTAGEM & ROBUSTEZ A GIROS 360° E CURVAS
@@ -80,6 +85,14 @@ MINIMUM_MATCHING_THRESHOLD = 0.70
 # Quantidade mínima de frames consecutivos que um ID precisa persistir
 # antes de ser confirmado como um animal real (elimina falsos positivos de vegetação/sombras)
 MIN_FRAMES_PERSISTENCE = 15
+
+# Tolerância a ausências curtas durante a confirmação.
+# O ByteTrack mantém o ID de um boi ocluído/indetectado por até LOST_TRACK_BUFFER
+# frames; com 0, um único frame perdido zera o streak (comportamento original).
+# Medição em video-gado.mp4 (Fase 1): tolerância 2 recupera animais que piscam,
+# mas aumenta ~7% o total confirmado sem referência manual que valide o ganho.
+# Mantido em 0 até existir contagem de referência (validation/ground_truth.json).
+STREAK_GAP_TOLERANCE = 0
 
 # Modo LineZone (Opcional - útil quando o voo é puramente retilíneo em funis/porteiras)
 ENABLE_LINEZONE = False

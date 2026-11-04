@@ -117,6 +117,9 @@ def process_video(
     confidence: float = config.CONFIDENCE_THRESHOLD,
     iou: float = config.IOU_THRESHOLD,
     imgsz: int = config.INFERENCE_IMAGE_SIZE,
+    track_activation: float = config.TRACK_ACTIVATION_THRESHOLD,
+    min_matching: float = config.MINIMUM_MATCHING_THRESHOLD,
+    streak_tolerance: int = config.STREAK_GAP_TOLERANCE,
 ):
     """Executa o pipeline completo de contagem aérea e gravação do vídeo anotado."""
     if not input_path.exists():
@@ -142,6 +145,8 @@ def process_video(
     print(f"Vídeo de Saída:   {output_path}")
     print(f"Modelo:           {model_path}")
     print(f"Confiança / IoU:  {confidence:.2f} / {iou:.2f} | imgsz {imgsz}")
+    print(f"Tracker:          ativação {track_activation:.2f} | matching {min_matching:.2f} | "
+          f"tolerância de falha {streak_tolerance}f")
     print(f"Modo LineZone:    {'ATIVADO' if enable_linezone else 'DESATIVADO (Rastreamento por Persistência)'}")
     print(f"Modo Fatiamento:  {'ATIVADO (SAHI)' if use_slicing else 'DESATIVADO'}")
 
@@ -171,11 +176,16 @@ def process_video(
         iou=iou,
         imgsz=imgsz,
     )
-    tracker = CattleTracker(frame_rate=int(fps))
+    tracker = CattleTracker(
+        frame_rate=int(fps),
+        track_activation_threshold=track_activation,
+        minimum_matching_threshold=min_matching,
+    )
     counter = CattleCounter(
         frame_width=width,
         frame_height=height,
         enable_linezone=enable_linezone,
+        streak_gap_tolerance=streak_tolerance,
     )
 
     # Anotadores Visuais da biblioteca Supervision
@@ -397,6 +407,24 @@ if __name__ == "__main__":
         default=config.INFERENCE_IMAGE_SIZE,
         help="Resolução de inferência (maior = detecta animais pequenos/distantes, mais lento).",
     )
+    parser.add_argument(
+        "--track-act",
+        type=float,
+        default=config.TRACK_ACTIVATION_THRESHOLD,
+        help="Confiança mínima para ativar um track no ByteTrack.",
+    )
+    parser.add_argument(
+        "--min-match",
+        type=float,
+        default=config.MINIMUM_MATCHING_THRESHOLD,
+        help="Limiar de associação do ByteTrack (maior = aceita IoU menor, menos fragmentação).",
+    )
+    parser.add_argument(
+        "--streak-tol",
+        type=int,
+        default=config.STREAK_GAP_TOLERANCE,
+        help="Frames ausentes tolerados antes de zerar a persistência de um ID.",
+    )
 
     args = parser.parse_args()
 
@@ -410,4 +438,7 @@ if __name__ == "__main__":
         confidence=args.conf,
         iou=args.iou,
         imgsz=args.imgsz,
+        track_activation=args.track_act,
+        min_matching=args.min_match,
+        streak_tolerance=args.streak_tol,
     )

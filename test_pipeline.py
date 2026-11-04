@@ -132,6 +132,34 @@ class TestCattleSystem(unittest.TestCase):
         counts = self.counter.update(dets)
         self.assertEqual(counts["confirmed_unique_total"], 1)
 
+    def test_streak_tolerance_keeps_persistence_across_short_gaps(self):
+        """
+        Com STREAK_GAP_TOLERANCE > 0, uma falha curta de detecção não zera a
+        persistência: o ByteTrack reativa o mesmo ID e o animal ainda confirma.
+        """
+        counter = CattleCounter(
+            frame_width=self.width,
+            frame_height=self.height,
+            min_persistence=5,
+            streak_gap_tolerance=2,
+        )
+        dets = sv.Detections(
+            xyxy=np.array([[100, 100, 150, 150]], dtype=np.float32),
+            confidence=np.array([0.85]),
+            tracker_id=np.array([7]),
+        )
+
+        for _ in range(4):
+            counter.update(dets)
+
+        # 2 frames sem o ID (dentro da tolerância)
+        counter.update(sv.Detections.empty())
+        counter.update(sv.Detections.empty())
+
+        # O 5º frame observado confirma o animal
+        counts = counter.update(dets)
+        self.assertEqual(counts["confirmed_unique_total"], 1)
+
     def test_hud_rendering(self):
         """Garante que a renderização do HUD não corrompe o frame ou dimensões."""
         frame = np.zeros((self.height, self.width, 3), dtype=np.uint8)

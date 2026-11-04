@@ -49,7 +49,7 @@ Benchmark local (40 frames amostrados, `conf=0.35`, `iou=0.45`, CPU):
 | `video-gado.mp4` (oblíquo) | 12,5 detecções/frame | **13,3** (0,19 s/frame) | 14,1 (0,49 s/frame) |
 | `gado.webm` (denso) | 2,3 detecções/frame | **18,9** | 20,9 (1,89 s/frame) |
 
-Pipeline completo: `gado.webm` **23 → 133** confirmados; `video-gado.mp4` 72 → 69 (com `--slicing`: 66, nos limiares antigos). A fragmentação de IDs ainda é o gargalo.
+Pipeline completo: `gado.webm` **23 → 128** confirmados; `video-gado.mp4` 72 → 59 (calibração do tracker de 04/11/2026 — ver seção abaixo). A fragmentação de IDs ainda é o gargalo.
 
 **Onde fica:** `models/yolo11ft.pt` — já configurado em `config.MODEL_WEIGHTS`. Instruções de download em [`models/README.md`](models/README.md).
 
@@ -72,6 +72,59 @@ python main.py --input gado.webm --output saida_sahi.mp4 --slicing       # SAHI 
 > Para voltar ao COCO: `--model yolov8n.pt` e ajustar `CLASSES_OF_INTEREST=[18, 19]` no `config.py`.
 
 **Linha de base antiga:** `video-gado.mp4` → 72 confirmados / 146 IDs; `gado.webm` → 23 confirmados / 104 IDs.
+
+---
+
+## 🔬 Validação e calibração do rastreador (04/11/2026)
+
+O gargalo da contagem não era o detector: era o **limiar de associação do ByteTrack**. Com `MINIMUM_MATCHING_THRESHOLD=0.70` (exige IoU > 0,30 entre a caixa nova e a prevista), um bovino pequeno e parecido com o vizinho perdia a associação por 1 frame e ganhava um ID novo. O `supervision` usa `1 - IoU` como custo, então **aumentar** o limiar **afrouxa** a associação.
+
+Varredura em duas janelas de 150 frames (`python tune.py`), com as detecções cacheadas:
+
+| `matching` | confirmados | IDs | fragmentação | IDs-lixo (≤3 frames) | ativos/frame |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| 0,70 (antigo) | 29 | 67 | **2,31** | 10 | 13,1 |
+| 0,80 | 31 | 44 | 1,45 | 4 | 14,5 |
+| **0,90 (adotado)** | 27 | 36 | **1,33** | 1 | 14,9 |
+| 0,95 | 25 | 36 | 1,44 | 1 | 14,9 |
+
+Resultado nos vídeos completos (mesmo modelo, mesmos limiares de detecção, mesma velocidade):
+
+| Vídeo | Antes (0,70) | Depois (0,90) |
+| :--- | :--- | :--- |
+| `video-gado.mp4` | 69 confirmados / 180 IDs / frag 2,61 | **59 / 103 / 1,75** |
+| `gado.webm` | 133 confirmados / 439 IDs / frag 3,30 | **128 / 182 / 1,42** |
+
+Os IDs caíram 43% e 59%: o mesmo animal deixou de ser contado 3 vezes. A contagem final mudou pouco (‑4% no denso, ‑14% no oblíquo) porque os IDs duplicados antes **também** confirmavam.
+
+### Ferramentas de medição
+
+```bash
+# 1. Relatório de fragmentação por ID (CSV em validation/)
+python validate.py report --input video-gado.mp4 --limit 150
+
+# 2. Frames-chave anotados para contagem manual (referência)
+python validate.py frames --input video-gado.mp4 --limit 150 --pick-best 3
+
+# 3. Registrar a contagem manual feita na imagem
+python validate.py gt --video video-gado.mp4 --frame 15 --count 24
+
+# 4. Grid de parâmetros usando só o cache de detecções (sem rodar o YOLO de novo)
+python tune.py --input video-gado.mp4 --limit 150 --matchings 0.70,0.80,0.90,0.95
+```
+
+> **Atenção metodológica:** `confirmados` não é monotônico em relação à fragmentação. Numa janela em que um animal fica no quadro mas o ID quebra em pedaços menores que 15 frames, ele **não** confirma (subcontagem); quando os pedaços são maiores, ele confirma duas vezes (supercontagem). Medimos os dois efeitos: na janela `[450:600]` do `video-gado.mp4`, o pico simultâneo é 23 e o total confirmado era 16 com `matching=0.70` e 23 com `0.90`. Por isso a **contagem manual de referência** (passo 2–3) é obrigatória antes de afirmar precisão.
+
+**Ajuste fino sem editar código** (novas flags do `main.py`):
+
+```bash
+python main.py --input video-gado.mp4 --output saida.mp4 \
+  --track-act 0.30 --min-match 0.90 --streak-tol 0
+# --min-match maior  -> aceita IoU menor na associação (menos fragmentação)
+# --streak-tol N     -> tolera N frames ausentes antes de zerar a persistência
+```
+
+**Parâmetro `STREAK_GAP_TOLERANCE`:** a persistência ainda é consecutiva (`0`). Tolerar 2 frames ausentes recupera animais que "piscam" (na janela `[450:600]`, 16 → 23 confirmados, igual ao pico), mas aumenta ~7% o total na janela `[0:150]` — sem referência manual não dá para dizer qual dos dois está certo. Ficou como experimento (`--streak-tol`), não como padrão.
 
 ---
 

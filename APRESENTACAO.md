@@ -1,4 +1,4 @@
-# Roteiro de Apresentação — Contador Aéreo de Bovinos
+﻿# Roteiro de Apresentação — Contador Aéreo de Bovinos
 
 > **Demo em um comando (Windows/PowerShell):** `.\run.bat`. Ele abre a janela com o vídeo e o tracking ao vivo. No Linux, use `./run.sh`.
 
@@ -51,7 +51,7 @@
 ### 2.4 Contagem ([counter.py](counter.py))
 O sistema mostra duas métricas no HUD:
 * **NO QUADRO:** quantos animais estão visíveis agora.
-* **TOTAL CONFIRMADO:** quantos IDs diferentes já apareceram por pelo menos **15 quadros consecutivos** ([config.py:80](config.py#L80)).
+* **TOTAL CONFIRMADO:** quantos IDs diferentes já apareceram por pelo menos **15 quadros consecutivos** ([config.py:87](config.py#L87)). A tolerância a falhas curtas de detecção (`STREAK_GAP_TOLERANCE`) existe, mas está em 0 — sem contagem manual de referência não dá para provar que tolerar falhas melhora o resultado.
 
 O filtro de persistência:
 * **descarta ruído**: uma pedra detectada por 2 quadros nunca chega a 15;
@@ -90,6 +90,8 @@ python main.py --input video-gado.mp4 --output resultado.mp4 --show   # 3. proce
 | [tracker.py](tracker.py) | Rastreamento com ByteTrack |
 | [counter.py](counter.py) | Regras de contagem |
 | [test_pipeline.py](test_pipeline.py) | Testes automáticos da lógica |
+| [validate.py](validate.py) | Mede a fragmentação por ID e gera imagens para contagem manual |
+| [tune.py](tune.py) | Compara parâmetros do ByteTrack usando detecções cacheadas |
 | [generate_test_video.py](generate_test_video.py) | Gera um vídeo sintético para teste |
 | [run.bat](run.bat) / [run.sh](run.sh) | Atalho da demo (Windows / Linux) |
 | [requirements.txt](requirements.txt) | Bibliotecas necessárias |
@@ -101,14 +103,15 @@ python main.py --input video-gado.mp4 --output resultado.mp4 --show   # 3. proce
 
 | Teste | Resultado |
 | :--- | :--- |
-| Testes automáticos | **7 de 7 passaram** |
+| Testes automáticos | **8 de 8 passaram** |
 | Modelo especializado `yolo11ft.pt` (YOLOv11, transfer learning) | ~8x mais detecções que o `yolov8n` no vídeo denso |
-| `video-gado.mp4` (20 s, 611 quadros, Nelore, drone baixo e inclinado) | **69 confirmados** (eram 72 com o COCO); ~5,5 quadros/s |
-| `gado.webm` (1080x1920, rebanho denso, drone alto) | **133 confirmados** (eram 23 com o COCO) |
+| `video-gado.mp4` (20 s, 611 quadros, Nelore, drone baixo e inclinado) | **59 confirmados** (eram 72 com o COCO); ~4,7 quadros/s |
+| `gado.webm` (1080x1920, rebanho denso, drone alto) | **128 confirmados** (eram 23 com o COCO) |
 | Ajuste distantes/agrupados (`conf 0.25`, `iou 0.60`) | +8–11% na contagem, mesma velocidade |
+| Calibração do rastreador (`matching` 0,70 → 0,90) | fragmentação **2,61 → 1,75** e **3,30 → 1,42**; IDs 180 → 103 e 439 → 182 |
 | SAHI (`--slicing`) no `gado.webm` | 18,9 → 20,9 detecções/frame, ~1,9 s/frame |
 | SAHI (`--slicing`) no `video-gado.mp4` | **66 confirmados** (eram 64), 227 IDs, 2,6 quadros/s |
-| Limitação restante | fragmentação de IDs (2,7–3,4) ainda distorce o total |
+| Limitação restante | fragmentação de IDs (1,4–1,8) ainda distorce o total; falta contagem manual de referência |
 
 ---
 
@@ -130,16 +133,19 @@ O ByteTrack mantém o ID guardado por 45 quadros (~1,5 s). Se o boi reaparecer n
 O COCO identifica os Nelore (gado branco) como `sheep` e, em voo alto, quase não via os animais (2,3 detecções/frame no vídeo denso). Trocamos por um modelo treinado em gado aéreo (`yolo11ft.pt`), que só tem a classe `cow` e detecta ~8× mais.
 
 **"A contagem está certa?"**
-Ainda é uma estimativa. Com o modelo especializado, o `gado.webm` saltou de 23 para **133 confirmados** e o `video-gado.mp4` ficou em **69**. A fragmentação de IDs (o mesmo animal ganhando um número novo depois de perder o rastreio) ainda distorce o total. O próximo passo é compensação de movimento da câmera (CMC) e validação contra uma contagem manual.
+Ainda é uma estimativa. Hoje o `gado.webm` dá **128 confirmados** e o `video-gado.mp4`, **59**. O que melhoramos de forma mensurável foi o rastreamento: a fragmentação (o mesmo animal ganhando um número novo depois de perder o rastreio) caiu de **3,30 para 1,42** no vídeo denso e de **2,61 para 1,75** no oblíquo, ajustando só o limiar de associação do ByteTrack. Sabemos que ainda sobra erro nos dois sentidos — um animal que quebra em pedaços curtos pode não confirmar (subcontagem) e pedaços longos podem confirmar duas vezes (supercontagem). O passo seguinte é comparar com uma contagem manual de referência (`validate.py`) e depois compensar o movimento da câmera (CMC).
 
 **"Roda em tempo real?"**
 Na CPU do notebook, a ~5 FPS com o modelo especializado (o vídeo tem 30 FPS): processa em cerca de 6× o tempo do vídeo. O código já aceita GPU (CUDA), basta trocar `DEVICE` em [config.py:21](config.py#L21), e com GPU passaria do tempo real. Para contar um rebanho, processar depois do voo é suficiente.
+
+**"Como vocês sabem que a fragmentação diminuiu?"**
+Criamos um medidor (`validate.py report`): ele roda o rastreamento e conta, para cada ID, quando apareceu, quando sumiu, o maior intervalo sem ser visto e o maior trecho contínuo. Com isso sai o número de IDs por animal confirmado — a fragmentação. Também medimos o **pico simultâneo** (máximo de animais no quadro ao mesmo tempo), que é um limite inferior do rebanho. Antes: 3,30 IDs por animal no vídeo denso; depois do ajuste: 1,42. Um script separado (`tune.py`) reaplica o rastreamento em combinações de parâmetros usando as detecções já salvas em cache, então cada teste leva segundos em vez de minutos.
 
 **"O que é IoU / NMS?"**
 IoU (*Intersection over Union*) mede quanto duas caixas se sobrepõem. O NMS (*Non-Maximum Suppression*) usa o IoU para apagar caixas duplicadas sobre o mesmo animal e deixar só a de maior confiança.
 
 **"Como vocês garantem que o código funciona?"**
-Com testes automáticos em [test_pipeline.py](test_pipeline.py): persistência (só conta após 15 quadros), reset da persistência quando o ID some, ruído (2 quadros não conta), giro de 360° (3 animais por 50 quadros = 3, não 150), HUD e SAHI. Hoje são **7 testes, todos passando**.
+Com testes automáticos em [test_pipeline.py](test_pipeline.py): persistência (só conta após 15 quadros), reset da persistência quando o ID some, ruído (2 quadros não conta), giro de 360° (3 animais por 50 quadros = 3, não 150), HUD e SAHI. Hoje são **8 testes, todos passando**.
 
 **"Por que separar em vários arquivos?"**
 Cada arquivo tem uma responsabilidade. Para trocar o modelo, mexemos só no detector. Para trocar a regra de contagem, só no counter. Isso facilita testar, manter e evoluir o código.
