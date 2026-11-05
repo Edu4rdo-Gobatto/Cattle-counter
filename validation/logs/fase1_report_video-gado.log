@@ -1,0 +1,20 @@
+C:\Users\eduar\OneDrive\Desktop\Meu site\projeto_drone\tracker.py:25: FutureWarning: The `ByteTrack` was deprecated since v0.28.0. It will be removed in v0.31.0.
+  self.tracker = sv.ByteTrack(
+[Cache] Detecções carregadas de video-gado_f0_611_c0.25_i0.60_s640.npz (611 frames)
+[Tracker] Inicializando ByteTrack (LostBuffer: 45, ActivationThresh: 0.3)
+
+==============================================================
+RELATÓRIO DE FRAGMENTAÇÃO — video-gado.mp4 [0:611]
+==============================================================
+Frames analisados:           611
+Média de bovinos por frame:  13.3
+Máximo simultâneo (pico):    23
+IDs criados pelo tracker:    103
+IDs confirmados (>= 15 frames): 59
+IDs curtos (<= 3 frames):    12  (ruído, filtrado)
+IDs fragmento (4-14 frames):    16  (animal real que não confirmou)
+Fragmentação (IDs/conf.):    1.75
+Confirmados / pico:          2.57x
+CSV detalhado:               C:\Users\eduar\OneDrive\Desktop\Meu site\projeto_drone\validation\video-gado_ids.csv
+
+Leitura: com a câmera quase parada, o total confirmado deveria ficar próximo do pico (23).

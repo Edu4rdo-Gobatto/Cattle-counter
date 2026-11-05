@@ -1,0 +1,90 @@
+{
+  "gerado_em": "2026-11-05T01:30:00-03:00",
+  "commit": "ba494f5",
+  "ambiente": {"python": "3.11.9", "opencv": "5.0.0", "supervision": "0.30.6", "ultralytics": "8.4.170", "numpy": "2.4.6"},
+  "maquina": {"os": "Windows", "cpu": "AMD Ryzen 7 5700U with Radeon Graphics"},
+  "fase0_testes": {"comando": ".\\.venv\\Scripts\\python.exe test_pipeline.py -v", "testes_ok": 8, "testes_total": 8, "status": "PASS"},
+  "fase1_regressao": [
+    {"video": "video-gado.mp4", "min_match": 0.70, "esperado": {"confirmados": 69, "ids": 180, "frag": 2.61},
+     "obtido": {"confirmados": 69, "ids": 180, "frag": 2.61}, "status": "PASS"},
+    {"video": "video-gado.mp4", "min_match": 0.90, "esperado": {"confirmados": 59, "ids": 103, "frag": 1.75},
+     "obtido": {"confirmados": 59, "ids": 103, "frag": 1.75}, "status": "PASS"},
+    {"video": "gado.webm", "min_match": 0.70, "esperado": {"confirmados": 133, "ids": 439, "frag": 3.30},
+     "obtido": {"confirmados": 133, "ids": 439, "frag": 3.30}, "status": "PASS"},
+    {"video": "gado.webm", "min_match": 0.90, "esperado": {"confirmados": 128, "ids": 182, "frag": 1.42},
+     "obtido": {"confirmados": 128, "ids": 182, "frag": 1.42}, "status": "PASS"}
+  ],
+  "fase2_referencia": {"metodo": "contagem visual por IA", "provisoria": true,
+    "frames": [
+      {"frame": 15, "total": null, "confianca": "baixa", "detectados_yolo": 22},
+      {"frame": 98, "total": null, "confianca": "baixa", "detectados_yolo": 20},
+      {"frame": 149, "total": null, "confianca": "baixa", "detectados_yolo": 20}
+    ],
+    "ground_truth_escrito": false},
+  "fase3_tolerancia": [
+    {"janela": "[0:150]", "match": 0.90, "tol": 0, "confirmados": 27, "erro_pct": null, "frag": 1.33},
+    {"janela": "[0:150]", "match": 0.90, "tol": 1, "confirmados": 29, "erro_pct": null, "frag": 1.24},
+    {"janela": "[0:150]", "match": 0.90, "tol": 2, "confirmados": 31, "erro_pct": null, "frag": 1.16},
+    {"janela": "[0:150]", "match": 0.85, "tol": 0, "confirmados": 29, "erro_pct": null, "frag": 1.38},
+    {"janela": "[0:150]", "match": 0.85, "tol": 1, "confirmados": 31, "erro_pct": null, "frag": 1.29},
+    {"janela": "[0:150]", "match": 0.85, "tol": 2, "confirmados": 33, "erro_pct": null, "frag": 1.21},
+    {"janela": "[0:150]", "match": 0.80, "tol": 0, "confirmados": 31, "erro_pct": null, "frag": 1.45},
+    {"janela": "[0:150]", "match": 0.80, "tol": 1, "confirmados": 33, "erro_pct": null, "frag": 1.36},
+    {"janela": "[0:150]", "match": 0.80, "tol": 2, "confirmados": 35, "erro_pct": null, "frag": 1.29},
+    {"janela": "[450:600]", "match": 0.90, "tol": 0, "confirmados": 17, "erro_pct": null, "frag": 2.65},
+    {"janela": "[450:600]", "match": 0.90, "tol": 1, "confirmados": 20, "erro_pct": null, "frag": 2.25},
+    {"janela": "[450:600]", "match": 0.90, "tol": 2, "confirmados": 23, "erro_pct": null, "frag": 1.96},
+    {"janela": "[450:600]", "match": 0.85, "tol": 0, "confirmados": 19, "erro_pct": null, "frag": 2.68},
+    {"janela": "[450:600]", "match": 0.85, "tol": 1, "confirmados": 21, "erro_pct": null, "frag": 2.43},
+    {"janela": "[450:600]", "match": 0.85, "tol": 2, "confirmados": 22, "erro_pct": null, "frag": 2.32},
+    {"janela": "[450:600]", "match": 0.80, "tol": 0, "confirmados": 19, "erro_pct": null, "frag": 2.95},
+    {"janela": "[450:600]", "match": 0.80, "tol": 1, "confirmados": 21, "erro_pct": null, "frag": 2.67},
+    {"janela": "[450:600]", "match": 0.80, "tol": 2, "confirmados": 22, "erro_pct": null, "frag": 2.55}
+  ],
+  "fase4_fim_a_fim": {"video-gado.mp4": {"confirmados": 59, "ids": 103, "frag": 1.75, "saida_ok": true},
+                      "gado.webm": {"confirmados": 128, "ids": 182, "frag": 1.42, "saida_ok": true}},
+  "inspecao_visual": [
+    {"video": "video-gado.mp4", "frame": 62, "achado": "caixas #25/#23 cobrem 4-6 animais, #2 cobre 2; ~10 animais sem caixa", "veredito": "SUSPEITO"},
+    {"video": "video-gado.mp4", "frame": 306, "achado": "~14 caixas para ~30 animais visíveis; sem duplicação visível", "veredito": "SUSPEITO"},
+    {"video": "video-gado.mp4", "frame": 550, "achado": "vinheta TikTok: 6 caixas no logo/texto; #47 (boi no frame 306) migrou para o logo", "veredito": "SUSPEITO"},
+    {"video": "gado.webm", "frame": 65, "achado": "caixas sobrepostas com 2 animais cada; ~5 animais sob a palmeira sem caixa; rastro de #4/#9 salta ~150 px", "veredito": "SUSPEITO"},
+    {"video": "gado.webm", "frame": 323, "achado": "motion blur; #41/#49/#80/#100 englobam 3-5 animais; rastros em zigue-zague (#67, #80)", "veredito": "SUSPEITO"},
+    {"video": "gado.webm", "frame": 580, "achado": "#163/#150 englobam ~5 animais; caixas aninhadas em #153 e rótulos #1../#156 sobrepostos; ~6 animais sem caixa", "veredito": "SUSPEITO"}
+  ],
+  "fase5_bordas": [
+    {"caso": "sem_gado.mp4 (30 frames pretos)", "status": "PASS", "detalhe": "exit 0, 0 confirmados, 0 IDs"},
+    {"caso": "curto.mp4 (10 frames)", "status": "PASS", "detalhe": "exit 0, 0 confirmados, 18 IDs; trivial pois 10 < persistência 15"},
+    {"caso": "flags --min-match 0.50 --streak-tol 2 --track-act 0.25", "status": "PASS", "detalhe": "exit 0, 68 confirmados, 925 IDs, frag 13.60"}
+  ],
+  "criterios_aceite": [
+    {"metrica": "frag video-gado.mp4", "meta": "<=1.75", "obtido": 1.75, "status": "PASS"},
+    {"metrica": "frag gado.webm", "meta": "<=1.42", "obtido": 1.42, "status": "PASS"},
+    {"metrica": "reprodução confirmados/IDs (4 combinações)", "meta": "exato", "obtido": "4/4 exatos", "status": "PASS"},
+    {"metrica": "janela [0:150] match 0.90", "meta": "27/36/1.33", "obtido": "27/36/1.33", "status": "PASS"},
+    {"metrica": "janela [450:600] match 0.90 confirmados", "meta": "23", "obtido": "17 (tol 0, default); 23 só com tol 2", "status": "FAIL"},
+    {"metrica": "erro vs. referência manual", "meta": "referência confiável", "obtido": null, "status": "PENDENTE_HUMANO"}
+  ],
+  "divergencias": [
+    "Vinheta do TikTok (frames 492-611 do video-gado.mp4, ~120 frames, não ~20) gera falsos positivos confirmados: IDs 96, 97 e 101 nasceram nela (>=3 dos 59).",
+    "min-match 0.90 (IoU > 0.10) permitiu que o track #47 saltasse de um boi (frame 306) para o logo (frame 550): fusão indevida.",
+    "Afirmação do commit '[450:600] 0.90 -> 23' só vale com streak-tol 2; com o default tol 0 são 17. 72% da janela é vinheta.",
+    "confirmados não é monotônico em fragmentação: a tolerância sobe confirmados com IDs fixos e derruba frag por construção; menor frag não implica contagem certa.",
+    "load_ground_truth() usa max() entre frames: referência = pico de um frame, não total de animais distintos; enviesa o erro.",
+    "Recall do detector em rebanho denso: caixas englobam 2-6 animais e muitos animais ficam sem caixa (todas as inspeções).",
+    "tune.py: cabeçalho tem coluna 'IDs', mas a linha não imprime total_ids, então as colunas ficam deslocadas (CSV correto). Não corrigido nesta validação.",
+    "gado.webm: CAP_PROP_FRAME_COUNT = 645, mas só 644 frames decodificados.",
+    "sv.ByteTrack deprecado (removido na supervision 0.31).",
+    "Caso de borda curto.mp4 é trivial (10 < MIN_FRAMES_PERSISTENCE).",
+    "Fase 2 sem referência: contagem por IA do frame 15 ~39 (34-43), confiança baixa; não registrada.",
+    "Limpeza pós-validação (pedido explícito do usuário): apagados cache/*.npz (4), outputs/*.mp4 (7), saida.mp4, __pycache__/, validation/fase2_recortes/ e arquivos em %TEMP%\\opencode."
+  ],
+  "recomendacoes": [
+    "Contagem humana dos 3 PNGs da Fase 2 antes de ajustar min-match ou streak-tol.",
+    "Excluir a vinheta (processar até o frame 491 ou adicionar --end-frame).",
+    "Limitar salto de track (CMC por homografia ou teto de deslocamento) antes de manter 0.90.",
+    "Medir acerto contra o total de animais distintos, não só fragmentação.",
+    "Fine-tuning do detector em dataset aéreo já anotado para melhorar o recall em rebanho denso.",
+    "Corrigir a coluna IDs do tune.py e migrar o tracker antes da supervision 0.31."
+  ],
+  "veredito": "APROVADO COM RESSALVAS"
+}

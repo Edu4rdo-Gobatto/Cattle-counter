@@ -1,0 +1,32 @@
+usage: main.py [-h] [--input INPUT] [--output OUTPUT] [--model MODEL]
+               [--enable-linezone] [--show] [--slicing] [--conf CONF]
+               [--iou IOU] [--imgsz IMGSZ] [--track-act TRACK_ACT]
+               [--min-match MIN_MATCH] [--streak-tol STREAK_TOL]
+
+Sistema de Detecção, Rastreamento e Contagem Aérea de Bovinos.
+
+options:
+  -h, --help            show this help message and exit
+  --input INPUT         Caminho do arquivo de vídeo de entrada.
+  --output OUTPUT       Caminho para salvar o vídeo anotado de saída.
+  --model MODEL         Pesos do modelo YOLO (.pt).
+  --enable-linezone     Habilita a contagem por LineZone além do totalizador
+                        de persistência.
+  --show                Exibe o vídeo anotado ao vivo numa janela enquanto
+                        processa.
+  --slicing             Ativa o fatiamento SAHI (mais detecção de animais
+                        pequenos, ~8x mais lento).
+  --conf CONF           Confiança mínima da detecção (menor = pega animais
+                        distantes, mas gera ruído).
+  --iou IOU             IoU do NMS (maior = preserva caixas sobrepostas de
+                        animais agrupados).
+  --imgsz IMGSZ         Resolução de inferência (maior = detecta animais
+                        pequenos/distantes, mais lento).
+  --track-act TRACK_ACT
+                        Confiança mínima para ativar um track no ByteTrack.
+  --min-match MIN_MATCH
+                        Limiar de associação do ByteTrack (maior = aceita IoU
+                        menor, menos fragmentação).
+  --streak-tol STREAK_TOL
+                        Frames ausentes tolerados antes de zerar a
+                        persistência de um ID.

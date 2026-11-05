@@ -1,0 +1,4 @@
+exit tune video-gado 0
+exit tune gado 0
+exit report video-gado 0
+exit report gado 0

@@ -1,0 +1,31 @@
+C:\Users\eduar\OneDrive\Desktop\Meu site\projeto_drone\tracker.py:25: FutureWarning: The `ByteTrack` was deprecated since v0.28.0. It will be removed in v0.31.0.
+  self.tracker = sv.ByteTrack(
+[Cache] Detecções carregadas de video-gado_f450_150_c0.25_i0.60_s640.npz (150 frames)
+[Tracker] Inicializando ByteTrack (LostBuffer: 45, ActivationThresh: 0.3)
+[Tracker] Inicializando ByteTrack (LostBuffer: 45, ActivationThresh: 0.3)
+[Tracker] Inicializando ByteTrack (LostBuffer: 45, ActivationThresh: 0.3)
+[Tracker] Inicializando ByteTrack (LostBuffer: 45, ActivationThresh: 0.3)
+[Tracker] Inicializando ByteTrack (LostBuffer: 45, ActivationThresh: 0.3)
+[Tracker] Inicializando ByteTrack (LostBuffer: 45, ActivationThresh: 0.3)
+[Tracker] Inicializando ByteTrack (LostBuffer: 45, ActivationThresh: 0.3)
+[Tracker] Inicializando ByteTrack (LostBuffer: 45, ActivationThresh: 0.3)
+[Tracker] Inicializando ByteTrack (LostBuffer: 45, ActivationThresh: 0.3)
+
+========================================================================================
+GRID DO TRACKER — video-gado.mp4 [450:600] | conf cache 0.25 | persistência 15
+========================================================================================
+ ativ  match  tol |  conf   IDs  frag  pico  fragm  lixo |    erro
+------------------------------------------------------------------
+ 0.30   0.90    0 |    17  2.65    23     11     7 |       -
+ 0.30   0.90    1 |    20  2.25    23     11     7 |       -
+ 0.30   0.90    2 |    23  1.96    23     11     7 |       -
+ 0.30   0.85    0 |    19  2.68    23     13    11 |       -
+ 0.30   0.85    1 |    21  2.43    23     13    11 |       -
+ 0.30   0.85    2 |    22  2.32    23     13    11 |       -
+ 0.30   0.80    0 |    19  2.95    22     19    12 |       -
+ 0.30   0.80    1 |    21  2.67    22     19    12 |       -
+ 0.30   0.80    2 |    22  2.55    22     19    12 |       -
+
+Menor fragmentação: ativ 0.30 / match 0.90 -> frag 1.96 (23 confirmados)
+Sem referência manual: rode 'python validate.py gt' para medir precisão.
+Resultados salvos em: C:\Users\eduar\OneDrive\Desktop\Meu site\projeto_drone\validation\tune_video-gado_f450_150.csv

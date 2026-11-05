@@ -1,0 +1,6 @@
+outputs/validacao_video-gado.mp4: frame 61/611 -> validation/inspecao_video-gado_p10.png
+outputs/validacao_video-gado.mp4: frame 305/611 -> validation/inspecao_video-gado_p50.png
+outputs/validacao_video-gado.mp4: frame 549/611 -> validation/inspecao_video-gado_p90.png
+outputs/validacao_gado.mp4: frame 64/644 -> validation/inspecao_gado_p10.png
+outputs/validacao_gado.mp4: frame 322/644 -> validation/inspecao_gado_p50.png
+outputs/validacao_gado.mp4: frame 579/644 -> validation/inspecao_gado_p90.png

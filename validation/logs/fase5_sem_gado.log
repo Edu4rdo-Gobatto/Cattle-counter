@@ -1,0 +1,30 @@
+C:\Users\eduar\OneDrive\Desktop\Meu site\projeto_drone\tracker.py:25: FutureWarning: The `ByteTrack` was deprecated since v0.28.0. It will be removed in v0.31.0.
+  self.tracker = sv.ByteTrack(
+
+======================================================================
+INICIANDO PIPELINE DE CONTAGEM AEREA DE BOVINOS
+======================================================================
+Vídeo de Entrada: C:\Users\eduar\AppData\Local\Temp\opencode\sem_gado.mp4
+Vídeo de Saída:   outputs\edge_sem_gado.mp4
+Modelo:           C:\Users\eduar\OneDrive\Desktop\Meu site\projeto_drone\models\yolo11ft.pt
+Confiança / IoU:  0.25 / 0.60 | imgsz 640
+Tracker:          ativação 0.30 | matching 0.90 | tolerância de falha 0f
+Modo LineZone:    DESATIVADO (Rastreamento por Persistência)
+Modo Fatiamento:  DESATIVADO
+Resolução:        640x480 @ 30.00 FPS
+Total de Frames:  30
+[Detector] Carregando modelo YOLO a partir de: C:\Users\eduar\OneDrive\Desktop\Meu site\projeto_drone\models\yolo11ft.pt (Device: cpu)
+[Detector] Modelo carregado com sucesso.
+[Tracker] Inicializando ByteTrack (LostBuffer: 45, ActivationThresh: 0.3)
+Processando Vídeo:   0%|          | 0/30 [00:00<?, ?frame/s]Processando Vídeo:   3%|▎         | 1/30 [00:03<01:35,  3.28s/frame]Processando Vídeo:   7%|▋         | 2/30 [00:03<00:40,  1.43s/frame]Processando Vídeo:  10%|█         | 3/30 [00:03<00:22,  1.19frame/s]Processando Vídeo:  13%|█▎        | 4/30 [00:03<00:14,  1.80frame/s]Processando Vídeo:  17%|█▋        | 5/30 [00:03<00:09,  2.51frame/s]Processando Vídeo:  20%|██        | 6/30 [00:03<00:07,  3.25frame/s]Processando Vídeo:  23%|██▎       | 7/30 [00:04<00:05,  4.07frame/s]Processando Vídeo:  27%|██▋       | 8/30 [00:04<00:04,  4.71frame/s]Processando Vídeo:  30%|███       | 9/30 [00:04<00:03,  5.28frame/s]Processando Vídeo:  33%|███▎      | 10/30 [00:04<00:03,  5.99frame/s]Processando Vídeo:  37%|███▋      | 11/30 [00:04<00:02,  6.50frame/s]Processando Vídeo:  40%|████      | 12/30 [00:04<00:02,  6.99frame/s]Processando Vídeo:  43%|████▎     | 13/30 [00:04<00:02,  7.20frame/s]Processando Vídeo:  47%|████▋     | 14/30 [00:04<00:02,  7.39frame/s]Processando Vídeo:  50%|█████     | 15/30 [00:05<00:01,  7.79frame/s]Processando Vídeo:  53%|█████▎    | 16/30 [00:05<00:01,  8.11frame/s]Processando Vídeo:  57%|█████▋    | 17/30 [00:05<00:01,  8.00frame/s]Processando Vídeo:  60%|██████    | 18/30 [00:05<00:01,  8.03frame/s]Processando Vídeo:  63%|██████▎   | 19/30 [00:05<00:01,  8.02frame/s]Processando Vídeo:  67%|██████▋   | 20/30 [00:05<00:01,  8.23frame/s]Processando Vídeo:  70%|███████   | 21/30 [00:05<00:01,  8.41frame/s]Processando Vídeo:  73%|███████▎  | 22/30 [00:05<00:00,  8.41frame/s]Processando Vídeo:  77%|███████▋  | 23/30 [00:06<00:00,  8.28frame/s]Processando Vídeo:  80%|████████  | 24/30 [00:06<00:00,  8.21frame/s]Processando Vídeo:  83%|████████▎ | 25/30 [00:06<00:00,  7.83frame/s]Processando Vídeo:  87%|████████▋ | 26/30 [00:06<00:00,  7.14frame/s]Processando Vídeo:  90%|█████████ | 27/30 [00:06<00:00,  6.68frame/s]Processando Vídeo:  93%|█████████▎| 28/30 [00:06<00:00,  6.95frame/s]Processando Vídeo:  97%|█████████▋| 29/30 [00:06<00:00,  7.09frame/s]Processando Vídeo: 100%|██████████| 30/30 [00:07<00:00,  7.42frame/s]Processando Vídeo: 100%|██████████| 30/30 [00:07<00:00,  4.28frame/s]
+
+======================================================================
+PROCESSAMENTO CONCLUIDO COM SUCESSO!
+======================================================================
+Frames Processados:       30
+Tempo Total:              7.03 s
+Velocidade Média da CPU:  4.27 FPS
+Bovinos Únicos Validados: 0
+IDs Criados pelo Tracker: 0
+Vídeo Anotado Salvo Em:   C:\Users\eduar\OneDrive\Desktop\Meu site\projeto_drone\outputs\edge_sem_gado.mp4
+

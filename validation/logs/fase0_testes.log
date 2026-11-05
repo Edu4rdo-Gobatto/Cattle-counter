@@ -1,0 +1,31 @@
+test_360_turn_immunity (__main__.TestCattleSystem.test_360_turn_immunity)
+Em um giro 360°, se os mesmos animais permanecerem na tela por 50 frames, ... ok
+test_empty_detections (__main__.TestCattleSystem.test_empty_detections)
+Verifica se detecções vazias não quebram o contador. ... ok
+test_hud_rendering (__main__.TestCattleSystem.test_hud_rendering)
+Garante que a renderização do HUD não corrompe o frame ou dimensões. ... ok
+test_persistence_filter (__main__.TestCattleSystem.test_persistence_filter)
+Verifica se um boi só é contado no 'total_confirmado' ... ok
+test_persistence_resets_when_id_disappears (__main__.TestCattleSystem.test_persistence_resets_when_id_disappears)
+A persistência é consecutiva: se o ID some do frame, o streak zera e o ... ok
+test_spurious_noise_filtered (__main__.TestCattleSystem.test_spurious_noise_filtered)
+Falsos positivos (ex: pedra/folha detectada por apenas 2 frames) ... ok
+test_streak_tolerance_keeps_persistence_across_short_gaps (__main__.TestCattleSystem.test_streak_tolerance_keeps_persistence_across_short_gaps)
+Com STREAK_GAP_TOLERANCE > 0, uma falha curta de detecção não zera a ... ok
+test_slicing_returns_empty_detections_on_black_frame (__main__.TestDetectorSlicing.test_slicing_returns_empty_detections_on_black_frame)
+Garante que o SAHI está configurado e devolve sv.Detections sem erro. ... ok
+
+----------------------------------------------------------------------
+Ran 8 tests in 18.557s
+
+OK
+[Counter] LineZone configurada de Point(x=128, y=360) até Point(x=1152, y=360)
+[Counter] LineZone configurada de Point(x=128, y=360) até Point(x=1152, y=360)
+[Counter] LineZone configurada de Point(x=128, y=360) até Point(x=1152, y=360)
+[Counter] LineZone configurada de Point(x=128, y=360) até Point(x=1152, y=360)
+[Counter] LineZone configurada de Point(x=128, y=360) até Point(x=1152, y=360)
+[Counter] LineZone configurada de Point(x=128, y=360) até Point(x=1152, y=360)
+[Counter] LineZone configurada de Point(x=128, y=360) até Point(x=1152, y=360)
+[Detector] Carregando modelo YOLO a partir de: C:\Users\eduar\OneDrive\Desktop\Meu site\projeto_drone\models\yolo11ft.pt (Device: cpu)
+[Detector] Modelo carregado com sucesso.
+[Detector] SAHI ativado (fatia 640px, overlap 128px)

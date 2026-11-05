@@ -1,0 +1,30 @@
+C:\Users\eduar\OneDrive\Desktop\Meu site\projeto_drone\tracker.py:25: FutureWarning: The `ByteTrack` was deprecated since v0.28.0. It will be removed in v0.31.0.
+  self.tracker = sv.ByteTrack(
+
+======================================================================
+INICIANDO PIPELINE DE CONTAGEM AEREA DE BOVINOS
+======================================================================
+Vídeo de Entrada: C:\Users\eduar\AppData\Local\Temp\opencode\curto.mp4
+Vídeo de Saída:   outputs\edge_curto.mp4
+Modelo:           C:\Users\eduar\OneDrive\Desktop\Meu site\projeto_drone\models\yolo11ft.pt
+Confiança / IoU:  0.25 / 0.60 | imgsz 640
+Tracker:          ativação 0.30 | matching 0.90 | tolerância de falha 0f
+Modo LineZone:    DESATIVADO (Rastreamento por Persistência)
+Modo Fatiamento:  DESATIVADO
+Resolução:        576x1024 @ 29.97 FPS
+Total de Frames:  10
+[Detector] Carregando modelo YOLO a partir de: C:\Users\eduar\OneDrive\Desktop\Meu site\projeto_drone\models\yolo11ft.pt (Device: cpu)
+[Detector] Modelo carregado com sucesso.
+[Tracker] Inicializando ByteTrack (LostBuffer: 45, ActivationThresh: 0.3)
+Processando Vídeo:   0%|          | 0/10 [00:00<?, ?frame/s]Processando Vídeo:  10%|█         | 1/10 [00:03<00:29,  3.28s/frame]Processando Vídeo:  20%|██        | 2/10 [00:03<00:11,  1.43s/frame]Processando Vídeo:  30%|███       | 3/10 [00:03<00:05,  1.19frame/s]Processando Vídeo:  40%|████      | 4/10 [00:03<00:03,  1.77frame/s]Processando Vídeo:  50%|█████     | 5/10 [00:03<00:02,  2.46frame/s]Processando Vídeo:  60%|██████    | 6/10 [00:03<00:01,  3.18frame/s]Processando Vídeo:  70%|███████   | 7/10 [00:04<00:00,  4.03frame/s]Processando Vídeo:  80%|████████  | 8/10 [00:04<00:00,  4.77frame/s]Processando Vídeo:  90%|█████████ | 9/10 [00:04<00:00,  5.57frame/s]Processando Vídeo: 100%|██████████| 10/10 [00:04<00:00,  6.10frame/s]Processando Vídeo: 100%|██████████| 10/10 [00:04<00:00,  2.25frame/s]
+
+======================================================================
+PROCESSAMENTO CONCLUIDO COM SUCESSO!
+======================================================================
+Frames Processados:       10
+Tempo Total:              4.46 s
+Velocidade Média da CPU:  2.24 FPS
+Bovinos Únicos Validados: 0
+IDs Criados pelo Tracker: 18
+Vídeo Anotado Salvo Em:   C:\Users\eduar\OneDrive\Desktop\Meu site\projeto_drone\outputs\edge_curto.mp4
+

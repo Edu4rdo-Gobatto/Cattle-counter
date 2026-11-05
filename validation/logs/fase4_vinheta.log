@@ -1,0 +1,8 @@
+frames 611 inicio vinheta (1-based) 492
+confirmados 59 | confirmados vivos na vinheta 6
+{'tracker_id': '47', 'first_frame': '253', 'last_frame': '570', 'frames_seen': '286', 'max_gap': '17', 'longest_streak': '224', 'confirmed': '1'}
+{'tracker_id': '77', 'first_frame': '454', 'last_frame': '611', 'frames_seen': '154', 'max_gap': '1', 'longest_streak': '122', 'confirmed': '1'}
+{'tracker_id': '82', 'first_frame': '473', 'last_frame': '520', 'frames_seen': '20', 'max_gap': '28', 'longest_streak': '19', 'confirmed': '1'}
+{'tracker_id': '96', 'first_frame': '510', 'last_frame': '611', 'frames_seen': '102', 'max_gap': '0', 'longest_streak': '102', 'confirmed': '1'}
+{'tracker_id': '97', 'first_frame': '521', 'last_frame': '611', 'frames_seen': '91', 'max_gap': '0', 'longest_streak': '91', 'confirmed': '1'}
+{'tracker_id': '101', 'first_frame': '561', 'last_frame': '611', 'frames_seen': '42', 'max_gap': '4', 'longest_streak': '25', 'confirmed': '1'}
