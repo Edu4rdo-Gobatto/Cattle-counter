@@ -170,7 +170,7 @@ def main() -> None:
             erro = "  -"
         print(
             f"{r['activation']:>5.2f} {r['matching']:>6.2f} {r['tol']:>4} | "
-            f"{r['confirmed']:>5} {r['frag']:>5.2f} {r['peak']:>5} "
+            f"{r['confirmed']:>5} {r['total_ids']:>5} {r['frag']:>5.2f} {r['peak']:>5} "
             f"{r['fragments']:>6} {r['junk']:>5} | {erro:>7}"
         )
 

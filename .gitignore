@@ -16,7 +16,6 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.so
-aa
 # Modelos e Pesos
 *.pt
 *.onnx

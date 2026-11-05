@@ -1,0 +1,71 @@
+# Tarefas para fechar o projeto
+
+Base: validação de 05/11/2026 (`validation/RELATORIO-VALIDACAO.md`). Em cada tarefa, **Critério** define quando ela está pronta.
+
+Legenda de prioridade:
+- **P0:** bloqueia a credibilidade da apresentação;
+- **P1:** melhora a contagem;
+- **P2:** manutenção;
+- **P3:** acabamento.
+
+## Feito em 05/11/2026
+
+- [x] Validação completa do commit `ba494f5`: reprodução exata dos números publicados.
+- [x] `--end-frame` / `config.END_FRAME`: corta a vinheta do TikTok. `video-gado.mp4 --end-frame 491` dá **56 confirmados / 89 IDs / frag 1,59** (antes 59 / 103 / 1,75, com ≥3 falsos positivos no logo).
+- [x] `tune.py`: a coluna `IDs` agora é impressa (antes as colunas saíam deslocadas).
+- [x] `.gitignore`: removida a linha solta `aa`.
+- [x] Limpeza: vídeos gerados, `cache/`, `__pycache__/` e `saida.mp4` apagados; mantidos `video-gado.mp4` e `gado.webm`.
+
+## P0: credibilidade
+
+- [ ] **T1. Referência humana (você).**
+  - Contar os bovinos em `validation/video-gado_f00015.png`, `f00098.png` e `f00149.png`, ignorando as caixas. Registrar com `python validate.py gt --video video-gado.mp4 --frame <N> --count <C>`.
+  - Se possível, estimar também o **total de animais distintos** do vídeo, assistindo devagar.
+  - *Critério:* `validation/ground_truth.json` existe e foi feito por humano.
+- [ ] **T2. Plano de treinamento mínimo** (`docs/PLANO-TREINAMENTO.md`): `train.py`, `pseudo_label.py`, dataset público anotado, treino no Colab e tabela antes × depois.
+  - *Critério:* tabela da Etapa 4 preenchida e `results.png` salvo.
+- [ ] **T3. Atualizar `APRESENTACAO.md` e `README.md`** com os números sem vinheta (56 / 89 / 1,59) e as ressalvas honestas:
+  - a referência ainda está pendente;
+  - fragmentação menor não é o mesmo que contagem certa.
+  - *Critério:* nenhum número dos slides diverge dos logs em `validation/`.
+- [ ] **T4. Métrica de acerto em `validate.py`.**
+  - Hoje `load_ground_truth()` usa o `max()` entre frames (o pico). Adicionar uma referência de **total distinto por vídeo** (chave separada no JSON) e fazer o `tune.py` reportar o erro contra ela.
+  - Mexe na lógica de validação; combinar antes.
+  - *Critério:* `tune.py` mostra o erro % contra o total distinto.
+
+## P1: qualidade da contagem
+
+- [ ] **T5. Bloquear saltos de track.** Com `min-match 0.90` (IoU > 0,10), o #47 saltou de um boi para o logo.
+  - Opção barata: teto de deslocamento por frame (proporcional ao tamanho da caixa) antes de aceitar a associação.
+  - *Critério:* nenhum ID troca de objeto nas 6 inspeções e a frag não sobe mais que 0,1.
+- [ ] **T6. Compensação de movimento da câmera (CMC).**
+  - Homografia ORB + RANSAC entre frames consecutivos, aplicada às caixas preditas antes do matching.
+  - Ataca a causa raiz da fragmentação em voo e pode permitir voltar a um `min-match` mais estrito (0.70–0.80), sem fusões.
+  - *Critério:* menor erro vs. T1 do que o 0.90 atual.
+  - Depende de T1.
+- [ ] **T7. Recall em rebanho denso.** As caixas englobam 2–6 animais e muitos ficam sem caixa.
+  - Testar `imgsz 960` e SAHI **contra a referência humana**, não contra detecções/frame. O fine-tune de T2 também ataca isso.
+  - *Critério:* detectados/frame mais perto da contagem humana dos 3 frames.
+- [ ] **T8. Escolher `STREAK_GAP_TOLERANCE` por erro**, não por fragmentação (a tolerância derruba a frag por construção).
+  - Depende de T1 e T4.
+
+## P2: manutenção
+
+- [ ] **T9. Migrar o tracker** antes da `supervision` 0.31 (o `sv.ByteTrack` será removido): pacote `trackers`, ou o ByteTrack/BoT-SORT do Ultralytics. BoT-SORT já tem CMC embutido e pode resolver T6 junto.
+  - *Critério:* mesma reprodução de 56 / 89 ± 2 com o novo tracker, ou diferença explicada.
+- [ ] **T10. Testes.**
+  - Teste do `--end-frame`.
+  - Teste de borda com > 15 frames: o caso de 10 frames é trivial.
+  - Teste de regressão do `tune.evaluate()` com detecções sintéticas fixas.
+- [ ] **T11. `gado.webm` declara 645 frames e decodifica 644.** Usar os frames lidos no resumo e no nome do cache.
+- [ ] **T12. Device automático:** `cuda` → `mps` → `cpu` no `config.py` (hoje fixo em `cpu`).
+
+## P3: acabamento
+
+- [ ] **T13. Migração para `src/`** (arquitetura alvo do `CLAUDE.md` §5). Combinar antes; preservar a lógica de persistência.
+- [ ] **T14. README:** remover o texto de "squad/agentes" e citar `CPU_NUM_THREADS` (metade de `os.cpu_count()`) em vez de `set_num_threads(8)`.
+- [ ] **T15. Recorte automático de vinheta**, opcional: detectar frames sem pasto (brilho/verde médio) em vez de exigir `--end-frame` manual.
+
+## Ordem sugerida
+
+T1 → T3 → T2 (em paralelo com T9) → T4 → T5/T6 → T7/T8 → P2/P3.

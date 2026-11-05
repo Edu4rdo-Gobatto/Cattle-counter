@@ -90,6 +90,15 @@ O roteiro da apresentação em sala está em `APRESENTACAO.md`.
 * **Caveat metodológico:** `confirmados` não é monotônico em fragmentação. Na janela `[450:600]` o pico simultâneo é 23, mas com `matching=0.70` confirmavam-se só 16 (pedaços de ID menores que 15 frames não confirmam → subcontagem); com 0,90, 23. Ou seja, há erro nos dois sentidos e a contagem manual é indispensável para afirmar precisão.
 * **`STREAK_GAP_TOLERANCE`:** implementado (`--streak-tol`) mas padrão 0. Com 2, a janela `[450:600]` vai de 16 → 23 confirmados (igual ao pico), porém a janela `[0:150]` sobe ~7% — sem referência manual não se pode escolher.
 
+### Validação do tracker 0.90 (05/11/2026)
+Relatório completo: `validation/RELATORIO-VALIDACAO.md`. Tarefas: `docs/TAREFAS.md`. Plano de treino: `docs/PLANO-TREINAMENTO.md`.
+* Reprodução **exata** dos números do commit `ba494f5`: `video-gado.mp4` 0.70 → 69 conf / 180 IDs; 0.90 → 59 / 103. `gado.webm` 133 / 439 → 128 / 182. O `gado.webm` decodifica 644 frames (declara 645).
+* **Vinheta do TikTok nos frames 492–611** do `video-gado.mp4` (~120 frames, não ~20): gerava ≥3 IDs confirmados falsos sobre o logo. Use `--end-frame 491` (`config.END_FRAME`): **56 confirmados / 89 IDs / frag 1,59**.
+* Com 0.90 (IoU > 0,10), um track pode **saltar** de objeto (o #47 foi de um boi para o logo). Fragmentação menor não prova contagem certa.
+* "[450:600] 0.90 → 23" só vale com `streak-tol 2`; no default (`tol 0`) são 17.
+* Detector em rebanho denso: caixas englobam 2–6 animais e muitos ficam sem caixa.
+* **Sem referência humana ainda:** a contagem por IA teve confiança baixa (frame 15 ≈ 39 animais vs. 22 detecções). Nenhum `ground_truth.json` foi gravado.
+
 ### Já resolvido (commit `ffd5699` e ajustes seguintes)
 * ~~`CLASSES_OF_INTEREST = [18, 19]`~~ (histórico COCO): agora `[0]` com o modelo especializado.
 * `supervision` travada em `<0.31.0` (o `sv.ByteTrack` será removido na 0.31) e `numpy` sem teto.
@@ -105,7 +114,8 @@ O roteiro da apresentação em sala está em `APRESENTACAO.md`.
 3. **Rebanho denso + drone alto + motion blur** (`gado.webm`, 1080x1920): o `yolov8n` subcontava fortemente (23 confirmados para 60+ animais visíveis num quadro). Com o modelo especializado `yolo11ft.pt` a contagem subiu para **128 confirmados** (~8x mais detecções/frame). Ajustes de limiar no COCO já testados (imgsz 1280, conf 0.25 etc.) não foram adotados: o limite era o modelo.
 4. **Modelo genérico:** ~~trocar por um `best.pt` do Roboflow~~ **Resolvido:** adotado `models/yolo11ft.pt` (YOLOv11, `xxilytoo/cattle_graze_model`, classe 0 = `cow`), baixado pronto (transfer learning, sem rotulagem).
 5. **Migrar o tracker** antes de atualizar a `supervision` para a 0.31+.
-6. **Linha solta `aa`** no `.gitignore` (inofensiva).
+6. ~~Linha solta `aa` no `.gitignore`~~ (removida em 05/11/2026).
+7. **Referência humana, saltos de track com 0.90 e recall em rebanho denso:** ver `docs/TAREFAS.md`.
 7. **`saida.mp4` (36 MB) e `yolov8n.pt` na raiz** — artefatos antigos, ignorados pelo git; outputs novos vão para `outputs/`.
 
 ### Próximos passos estruturais

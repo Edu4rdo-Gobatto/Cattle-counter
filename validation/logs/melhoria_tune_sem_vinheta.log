@@ -1,0 +1,20 @@
+C:\Users\eduar\OneDrive\Desktop\Meu site\projeto_drone\tracker.py:25: FutureWarning: The `ByteTrack` was deprecated since v0.28.0. It will be removed in v0.31.0.
+  self.tracker = sv.ByteTrack(
+[Detector] Carregando modelo YOLO a partir de: C:\Users\eduar\OneDrive\Desktop\Meu site\projeto_drone\models\yolo11ft.pt (Device: cpu)
+[Detector] Modelo carregado com sucesso.
+[Detector] 491 frames em 63.9s (7.69 FPS)
+[Cache] Detecções salvas em video-gado_f0_491_c0.25_i0.60_s640.npz
+[Tracker] Inicializando ByteTrack (LostBuffer: 45, ActivationThresh: 0.3)
+[Tracker] Inicializando ByteTrack (LostBuffer: 45, ActivationThresh: 0.3)
+
+========================================================================================
+GRID DO TRACKER — video-gado.mp4 [0:491] | conf cache 0.25 | persistência 15
+========================================================================================
+ ativ  match  tol |  conf   IDs  frag  pico  fragm  lixo |    erro
+------------------------------------------------------------------
+ 0.30   0.70    0 |    66  2.44    20     42    34 |       -
+ 0.30   0.90    0 |    56  1.59    23     11     9 |       -
+
+Menor fragmentação: ativ 0.30 / match 0.90 -> frag 1.59 (56 confirmados)
+Sem referência manual: rode 'python validate.py gt' para medir precisão.
+Resultados salvos em: C:\Users\eduar\OneDrive\Desktop\Meu site\projeto_drone\validation\tune_video-gado_f0_491.csv

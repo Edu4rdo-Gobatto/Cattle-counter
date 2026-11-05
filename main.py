@@ -7,7 +7,7 @@ Decodificação -> Detecção YOLO -> Rastreamento ByteTrack -> Contagem -> HUD 
 import argparse
 import time
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 import cv2
 import numpy as np
 import supervision as sv
@@ -120,6 +120,7 @@ def process_video(
     track_activation: float = config.TRACK_ACTIVATION_THRESHOLD,
     min_matching: float = config.MINIMUM_MATCHING_THRESHOLD,
     streak_tolerance: int = config.STREAK_GAP_TOLERANCE,
+    end_frame: Optional[int] = config.END_FRAME,
 ):
     """Executa o pipeline completo de contagem aérea e gravação do vídeo anotado."""
     if not input_path.exists():
@@ -159,9 +160,12 @@ def process_video(
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     fps = cap.get(cv2.CAP_PROP_FPS) or config.DEFAULT_FPS
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    # Corte opcional do fim do vídeo (vinhetas, créditos)
+    if end_frame is not None and 0 < end_frame < total_frames:
+        total_frames = end_frame
 
     print(f"Resolução:        {width}x{height} @ {fps:.2f} FPS")
-    print(f"Total de Frames:  {total_frames}")
+    print(f"Total de Frames:  {total_frames}" + (f" (corte em --end-frame {end_frame})" if end_frame else ""))
 
     # Configuração do escritor de vídeo de saída (Codec MP4V compatível universalmente)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -233,7 +237,7 @@ def process_video(
 
     try:
         with tqdm(total=total_frames, desc="Processando Vídeo", unit="frame") as pbar:
-            while True:
+            while end_frame is None or frame_idx < end_frame:
                 ret, frame = cap.read()
                 if not ret:
                     break
@@ -425,6 +429,12 @@ if __name__ == "__main__":
         default=config.STREAK_GAP_TOLERANCE,
         help="Frames ausentes tolerados antes de zerar a persistência de um ID.",
     )
+    parser.add_argument(
+        "--end-frame",
+        type=int,
+        default=config.END_FRAME,
+        help="Para no frame N (exclusivo), ex.: 491 corta a vinheta do video-gado.mp4.",
+    )
 
     args = parser.parse_args()
 
@@ -441,4 +451,5 @@ if __name__ == "__main__":
         track_activation=args.track_act,
         min_matching=args.min_match,
         streak_tolerance=args.streak_tol,
+        end_frame=args.end_frame,
     )

@@ -94,6 +94,11 @@ MIN_FRAMES_PERSISTENCE = 15
 # Mantido em 0 até existir contagem de referência (validation/ground_truth.json).
 STREAK_GAP_TOLERANCE = 0
 
+# Último frame a processar (exclusivo). None = vídeo inteiro.
+# Serve para cortar vinhetas/créditos: no video-gado.mp4 a vinheta do TikTok
+# começa no frame 492 e o logo gerava 3 IDs confirmados falsos (validação 05/11).
+END_FRAME = None
+
 # Modo LineZone (Opcional - útil quando o voo é puramente retilíneo em funis/porteiras)
 ENABLE_LINEZONE = False
 
