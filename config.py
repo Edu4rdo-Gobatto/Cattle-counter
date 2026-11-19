@@ -35,9 +35,13 @@ MODEL_WEIGHTS = str(BASE_DIR / "models" / "yolo11ft.pt")
 INFERENCE_IMAGE_SIZE = 640
 
 # Limiares de detecção
-# conf 0.25 + iou 0.60: calibrado nos dois vídeos para pegar animais distantes e
-# preservar caixas sobrepostas de bovinos agrupados (mesma velocidade, +8-11% na contagem).
-CONFIDENCE_THRESHOLD = 0.25  # Limiar de confiança mínima para considerar um animal
+# conf 0.15 + iou 0.60: calibrado em 18/11/2026 contra a contagem humana
+# (70 animais distintos em 0..491). Caixas fracas (0.15-0.25) não criam IDs
+# novos (a ativação é 0.30), mas mantêm o track vivo quando o animal some por
+# 1-2 frames — foi o que levou o total de 56 para 67 (erro -20% -> -4%).
+# Custo: ~4,0-4,6 FPS contra 5,1 FPS e 1 falso positivo na marca d'água,
+# removido pelo filtro de track fixo (STATIC_TRACK_MAX_SPREAD).
+CONFIDENCE_THRESHOLD = 0.15  # Limiar de confiança mínima para considerar um animal
 IOU_THRESHOLD = 0.60         # IoU do NMS (maior preserva animais agrupados)
 
 # O modelo especializado usa apenas a classe 0 = 'cow'.
@@ -93,6 +97,19 @@ MIN_FRAMES_PERSISTENCE = 15
 # mas aumenta ~7% o total confirmado sem referência manual que valide o ganho.
 # Mantido em 0 até existir contagem de referência (validation/ground_truth.json).
 STREAK_GAP_TOLERANCE = 0
+
+# ------------------------------------------------------------------------------
+# Filtro de objeto "colado na tela" (marca d'água / logo)
+# ------------------------------------------------------------------------------
+# Uma marca d'água não se move com o pasto: o centro da caixa fica praticamente
+# fixo durante centenas de frames, mesmo com o drone voando. Um bovino sempre
+# desloca com o movimento da câmera. Medição de 18/11/2026: o ID da marca do
+# TikTok variou 1 px em 339 frames (conf 0.36) e virou falso positivo confirmed;
+# o boi mais parado do vídeo variou 217 px. O filtro é conservador de propósito:
+# exige as duas condições (vida longa E deslocamento quase nulo), então um boi
+# sob um drone parado continua sendo contado.
+STATIC_TRACK_MAX_SPREAD = 10   # px de variação máxima do centro (x e y)
+STATIC_TRACK_MIN_FRAMES = 100  # só descarta IDs que viveram pelo menos isso
 
 # Último frame a processar (exclusivo). None = vídeo inteiro.
 # Serve para cortar vinhetas/créditos: no video-gado.mp4 a vinheta do TikTok

@@ -13,6 +13,7 @@ Uso:
     python validate.py frames --input video-gado.mp4 --limit 150 --pick-best 3
     python validate.py report --input video-gado.mp4 --limit 150
     python validate.py gt --video video-gado.mp4 --frame 50 --count 24
+    python validate.py gt --video video-gado.mp4 --total 70 --end 491 --note "contado assistindo"
 """
 
 import argparse
@@ -34,6 +35,11 @@ from counter import CattleCounter
 VALIDATION_DIR = config.BASE_DIR / "validation"
 CACHE_DIR = config.BASE_DIR / "cache"
 GROUND_TRUTH_PATH = VALIDATION_DIR / "ground_truth.json"
+
+# Chaves reservadas no ground_truth.json (não são números de frame)
+TOTAL_DISTINCT_KEY = "total_distinct"
+TOTAL_DISTINCT_FRAMES_KEY = "total_distinct_frames"
+NOTE_KEY = "note"
 
 
 # ==============================================================================
@@ -200,6 +206,7 @@ def id_stats(counter: CattleCounter) -> List[Dict[str, int]]:
     first/last/max_gap/longest_streak a partir dos streaks consecutivos.
     """
     rows = []
+    static_ids = counter.static_track_ids()
     for tracker_id, frames_seen in sorted(counter.id_frame_counts.items()):
         appearances = counter.id_appearance_frames.get(tracker_id, [])
         gaps = [
@@ -214,6 +221,7 @@ def id_stats(counter: CattleCounter) -> List[Dict[str, int]]:
                 "max_gap": max(gaps) if gaps else 0,
                 "longest_streak": counter.id_longest_streak.get(tracker_id, frames_seen),
                 "confirmed": int(tracker_id in counter.confirmed_unique_ids),
+                "static": int(tracker_id in static_ids),
             }
         )
     return rows
@@ -324,7 +332,9 @@ def cmd_report(args) -> None:
         writer.writeheader()
         writer.writerows(rows)
 
-    confirmed = counts["confirmed_unique_total"]
+    confirmed = counter.unique_total()
+    raw_confirmed = counts["confirmed_unique_total"]
+    static_ids = counter.static_track_ids()
     total_ids = len(counter.id_frame_counts)
     short_ids = sum(1 for r in rows if r["frames_seen"] <= 3)
     fragments = sum(1 for r in rows if 4 <= r["frames_seen"] < counter.min_persistence)
@@ -340,6 +350,9 @@ def cmd_report(args) -> None:
     print(f"Máximo simultâneo (pico):    {max_concurrent}")
     print(f"IDs criados pelo tracker:    {total_ids}")
     print(f"IDs confirmados (>= {counter.min_persistence} frames): {confirmed}")
+    if static_ids:
+        print(f"Descartados (fixos na tela): {len(static_ids)}  "
+              f"IDs {sorted(static_ids)}  (brutos: {raw_confirmed})")
     print(f"IDs curtos (<= 3 frames):    {short_ids}  (ruído, filtrado)")
     print(f"IDs fragmento (4-{counter.min_persistence - 1} frames):    {fragments}  "
           f"(animal real que não confirmou)")
@@ -347,27 +360,63 @@ def cmd_report(args) -> None:
         print(f"Fragmentação (IDs/conf.):    {total_ids / confirmed:.2f}")
         print(f"Confirmados / pico:          {confirmed / max_concurrent:.2f}x" if max_concurrent else "")
     print(f"CSV detalhado:               {csv_path}")
-    if max_concurrent:
+
+    gt_total = load_ground_truth(input_path.name, kind="total")
+    gt_peak = load_ground_truth(input_path.name, kind="peak")
+    if gt_total:
+        print(f"\nReferência humana (total):   {gt_total} bovinos")
+        print(f"Erro da contagem:            "
+              f"{(confirmed - gt_total) / gt_total * 100:+.0f}%")
+    elif gt_peak:
+        print(f"\nReferência humana (pico):    {gt_peak} bovinos no quadro")
+        print(f"Detector no pico:            {max_concurrent} caixas "
+              f"({max_concurrent / gt_peak * 100:.0f}% do visível)")
+    elif max_concurrent:
         print(
             f"\nLeitura: com a câmera quase parada, o total confirmado deveria ficar "
-            f"próximo do pico ({max_concurrent})."
+            f"próximo do pico ({max_concurrent}). Sem referência humana não dá para "
+            f"afirmar se está certo."
         )
 
 
 # ==============================================================================
 # SUBCOMANDO: gt (contagem manual de referência)
 # ==============================================================================
+def load_ground_truth_raw() -> Dict[str, Dict[str, object]]:
+    """Conteúdo bruto do ground_truth.json (vazio se o arquivo não existir)."""
+    if not GROUND_TRUTH_PATH.exists():
+        return {}
+    return json.loads(GROUND_TRUTH_PATH.read_text(encoding="utf-8"))
+
+
 def cmd_gt(args) -> None:
     VALIDATION_DIR.mkdir(exist_ok=True)
-    data: Dict[str, Dict[str, int]] = {}
-    if GROUND_TRUTH_PATH.exists():
-        data = json.loads(GROUND_TRUTH_PATH.read_text(encoding="utf-8"))
+    data = load_ground_truth_raw()
+    video = data.setdefault(args.video, {})
 
-    data.setdefault(args.video, {})[str(args.frame)] = args.count
+    if args.total is not None:
+        video[TOTAL_DISTINCT_KEY] = int(args.total)
+        if args.end is not None:
+            video[TOTAL_DISTINCT_FRAMES_KEY] = [0, int(args.end)]
+        if args.note:
+            video[NOTE_KEY] = args.note
+        print(
+            f"Referência registrada: {args.video} -> total distinto de "
+            f"{args.total} bovinos"
+            + (f" (frames 0-{args.end})" if args.end is not None else "")
+        )
+    else:
+        if args.frame is None or args.count is None:
+            raise SystemExit(
+                "Informe --frame e --count (contagem de um frame) ou "
+                "--total (total de animais distintos do vídeo)."
+            )
+        video[str(args.frame)] = int(args.count)
+        print(f"Referência registrada: {args.video} frame {args.frame} -> {args.count} bovinos")
+
     GROUND_TRUTH_PATH.write_text(
         json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8"
     )
-    print(f"Referência registrada: {args.video} frame {args.frame} -> {args.count} bovinos")
     print(f"Arquivo: {GROUND_TRUTH_PATH}")
 
 
@@ -400,22 +449,46 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_gt = sub.add_parser("gt", help="Registra contagem manual de referência.")
     p_gt.add_argument("--video", required=True)
-    p_gt.add_argument("--frame", type=int, required=True)
-    p_gt.add_argument("--count", type=int, required=True)
+    p_gt.add_argument("--frame", type=int, default=None, help="Frame contado.")
+    p_gt.add_argument("--count", type=int, default=None, help="Animais naquele frame.")
+    p_gt.add_argument(
+        "--total", type=int, default=None,
+        help="Total de animais distintos do vídeo (referência para o erro de contagem).",
+    )
+    p_gt.add_argument(
+        "--end", type=int, default=None,
+        help="Último frame coberto pela contagem de --total (ex.: 491, antes da vinheta).",
+    )
+    p_gt.add_argument("--note", default=None, help="Observação sobre a contagem.")
     p_gt.set_defaults(func=cmd_gt)
 
     return parser
 
 
-def load_ground_truth(video_name: str) -> Optional[int]:
-    """Maior contagem manual registrada para o vídeo (referência conservadora)."""
-    if not GROUND_TRUTH_PATH.exists():
-        return None
-    data = json.loads(GROUND_TRUTH_PATH.read_text(encoding="utf-8"))
-    frames = data.get(video_name)
-    if not frames:
-        return None
-    return max(int(v) for v in frames.values())
+def load_ground_truth(video_name: str, kind: str = "peak") -> Optional[int]:
+    """
+    Referência manual registrada para o vídeo.
+
+    kind="peak"  -> maior contagem por frame (piso do rebanho, comparável a janelas)
+    kind="total" -> total de animais distintos do vídeo (comparável ao vídeo inteiro)
+    """
+    video = load_ground_truth_raw().get(video_name) or {}
+
+    if kind == "total":
+        total = video.get(TOTAL_DISTINCT_KEY)
+        return int(total) if isinstance(total, (int, float)) else None
+
+    frames = [int(v) for k, v in video.items() if k.isdigit()]
+    return max(frames) if frames else None
+
+
+def ground_truth_scope(video_name: str) -> Optional[Tuple[int, int]]:
+    """Faixa de frames coberta pela contagem de total distinto, se registrada."""
+    video = load_ground_truth_raw().get(video_name) or {}
+    scope = video.get(TOTAL_DISTINCT_FRAMES_KEY)
+    if isinstance(scope, list) and len(scope) == 2:
+        return int(scope[0]), int(scope[1])
+    return None
 
 
 if __name__ == "__main__":

@@ -29,6 +29,7 @@ from tracker import CattleTracker
 from validate import (
     VALIDATION_DIR,
     detect_frames,
+    ground_truth_scope,
     load_ground_truth,
 )
 
@@ -72,7 +73,9 @@ def evaluate(
         counts = counter.update(tracked)
         active_history.append(counts["active_in_frame"])
 
-    confirmed = counts["confirmed_unique_total"]
+    # Total final sem os objetos fixos na tela (marca d'água confirmada pela persistência)
+    static_ids = counter.static_track_ids()
+    confirmed = counter.unique_total()
     total_ids = len(counter.id_frame_counts)
     fragments = sum(
         1
@@ -84,6 +87,8 @@ def evaluate(
         "matching": matching,
         "tol": tolerance,
         "confirmed": confirmed,
+        "raw": counts["confirmed_unique_total"],
+        "static": len(static_ids),
         "total_ids": total_ids,
         "frag": (total_ids / confirmed) if confirmed else float("inf"),
         "peak": max(active_history) if active_history else 0,
@@ -99,6 +104,11 @@ def main() -> None:
     parser.add_argument("--input", required=True)
     parser.add_argument("--start", type=int, default=0)
     parser.add_argument("--limit", type=int, default=150)
+    parser.add_argument(
+        "--end-frame", type=int, default=None,
+        help="Último frame exclusivo (corta a vinheta, igual ao main.py). "
+             "Tem prioridade sobre --limit.",
+    )
     parser.add_argument(
         "--conf", type=float, default=0.15,
         help="Confiança do cache de detecções (baixa de propósito: o tracker "
@@ -119,10 +129,20 @@ def main() -> None:
 
     input_path = Path(args.input)
     gt = args.gt
+    gt_kind = "informada em --gt"
     if gt is None and not args.no_gt_file:
-        gt = load_ground_truth(input_path.name)
+        gt_total = load_ground_truth(input_path.name, kind="total")
+        gt_peak = load_ground_truth(input_path.name, kind="peak")
+        if gt_total is not None:
+            gt, gt_kind = gt_total, "total distinto"
+        elif gt_peak is not None:
+            gt, gt_kind = gt_peak, "pico por frame"
     if gt:
-        print(f"[Referência] {gt} bovinos (contagem manual)")
+        print(f"[Referência] {gt} bovinos ({gt_kind})")
+
+    limit = args.limit
+    if args.end_frame is not None:
+        limit = max(0, args.end_frame - args.start)
 
     cap = cv2.VideoCapture(str(input_path))
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -132,13 +152,28 @@ def main() -> None:
     detections, _, fps = detect_frames(
         input_path,
         start=args.start,
-        limit=args.limit,
+        limit=limit,
         confidence=args.conf,
         iou=args.iou,
         imgsz=args.imgsz,
     )
     if not detections:
         raise SystemExit("Nenhum frame processado.")
+
+    # O erro só é comparável se a execução cobrir a mesma faixa da contagem manual.
+    end = args.start + len(detections)
+    if gt and gt_kind == "total distinto":
+        scope = ground_truth_scope(input_path.name)
+        if scope is None:
+            print(
+                "[AVISO] A referência de total distinto não registra a faixa de frames "
+                "coberta (`validate.py gt --end N`): confira se a execução é o vídeo inteiro."
+            )
+        elif (args.start, end) != scope:
+            print(
+                f"[AVISO] A referência cobre os frames {scope[0]}-{scope[1]}, mas esta "
+                f"execução cobre {args.start}-{end}. O erro abaixo NÃO é comparável."
+            )
 
     results = []
     for activation in parse_floats(args.activations):
@@ -158,7 +193,7 @@ def main() -> None:
           f" | conf cache {args.conf:.2f} | persistência {args.min_persistence}")
     print(f"{'=' * 88}")
     header = (
-        f"{'ativ':>5} {'match':>6} {'tol':>4} | {'conf':>5} {'IDs':>5} {'frag':>5} "
+        f"{'ativ':>5} {'match':>6} {'tol':>4} | {'conf':>5} {'est':>4} {'IDs':>5} {'frag':>5} "
         f"{'pico':>5} {'fragm':>6} {'lixo':>5} | {'erro':>7}"
     )
     print(header)
@@ -170,8 +205,8 @@ def main() -> None:
             erro = "  -"
         print(
             f"{r['activation']:>5.2f} {r['matching']:>6.2f} {r['tol']:>4} | "
-            f"{r['confirmed']:>5} {r['total_ids']:>5} {r['frag']:>5.2f} {r['peak']:>5} "
-            f"{r['fragments']:>6} {r['junk']:>5} | {erro:>7}"
+            f"{r['confirmed']:>5} {r['static']:>4} {r['total_ids']:>5} {r['frag']:>5.2f} "
+            f"{r['peak']:>5} {r['fragments']:>6} {r['junk']:>5} | {erro:>7}"
         )
 
     # Ranking: menor erro absoluto vs. referência; empate -> menor fragmentação
@@ -194,7 +229,7 @@ def main() -> None:
 
     VALIDATION_DIR.mkdir(exist_ok=True)
     csv_path = VALIDATION_DIR / (
-        f"tune_{input_path.stem}_f{args.start}_{len(detections)}.csv"
+        f"tune_{input_path.stem}_f{args.start}_{len(detections)}_c{args.conf:.2f}.csv"
     )
     with open(csv_path, "w", newline="", encoding="utf-8") as fh:
         writer = csv.DictWriter(fh, fieldnames=list(results[0].keys()))

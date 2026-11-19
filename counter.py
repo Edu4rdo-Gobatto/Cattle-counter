@@ -25,12 +25,16 @@ class CattleCounter:
         line_start_rel: Tuple[float, float] = config.LINEZONE_START_RELATIVE,
         line_end_rel: Tuple[float, float] = config.LINEZONE_END_RELATIVE,
         streak_gap_tolerance: int = config.STREAK_GAP_TOLERANCE,
+        static_max_spread: float = config.STATIC_TRACK_MAX_SPREAD,
+        static_min_frames: int = config.STATIC_TRACK_MIN_FRAMES,
     ):
         self.frame_width = frame_width
         self.frame_height = frame_height
         self.min_persistence = min_persistence
         self.enable_linezone = enable_linezone
         self.streak_gap_tolerance = streak_gap_tolerance
+        self.static_max_spread = static_max_spread
+        self.static_min_frames = static_min_frames
 
         # Dicionário para rastrear a sequência atual de frames de cada ID
         # (persistência: reseta quando o ID fica mais que N frames fora do quadro)
@@ -48,6 +52,10 @@ class CattleCounter:
         self.id_appearance_frames: Dict[int, List[int]] = {}
         self.id_longest_streak: Dict[int, int] = {}
         self._frame_index = 0
+
+        # Extremos do centro da caixa por ID: [min_x, max_x, min_y, max_y].
+        # Base do filtro de objeto fixo na tela (marca d'água, logo, poste).
+        self.id_center_bounds: Dict[int, List[float]] = {}
 
         # Conjunto de IDs confirmados que atingiram o limiar de persistência
         self.confirmed_unique_ids: Set[int] = set()
@@ -92,9 +100,10 @@ class CattleCounter:
         self._frame_index += 1
 
         if tracked_detections.tracker_id is not None:
-            for tracker_id in tracked_detections.tracker_id:
+            for index, tracker_id in enumerate(tracked_detections.tracker_id):
                 tracker_id = int(tracker_id)
                 active_ids.add(tracker_id)
+                self._update_center_bounds(tracker_id, tracked_detections.xyxy[index])
 
                 # Total de frames em que o ID já foi visto (diagnóstico)
                 self.id_frame_counts[tracker_id] = (
@@ -141,6 +150,43 @@ class CattleCounter:
             "line_in": line_in,
             "line_out": line_out,
         }
+
+    def _update_center_bounds(self, tracker_id: int, box: np.ndarray) -> None:
+        """Guarda os extremos do centro da caixa para detectar objeto fixo na tela."""
+        center_x = float(box[0] + box[2]) / 2
+        center_y = float(box[1] + box[3]) / 2
+        bounds = self.id_center_bounds.get(tracker_id)
+        if bounds is None:
+            self.id_center_bounds[tracker_id] = [center_x, center_x, center_y, center_y]
+            return
+        bounds[0] = min(bounds[0], center_x)
+        bounds[1] = max(bounds[1], center_x)
+        bounds[2] = min(bounds[2], center_y)
+        bounds[3] = max(bounds[3], center_y)
+
+    def static_track_ids(self) -> Set[int]:
+        """
+        IDs confirmados que na verdade são objetos fixos na tela (marca d'água).
+
+        Só descarta quando o centro variou quase nada E o ID viveu muito tempo:
+        um bovino se desloca com a câmera, uma sobreposição de tela não.
+        """
+        static_ids: Set[int] = set()
+        for tracker_id in self.confirmed_unique_ids:
+            bounds = self.id_center_bounds.get(tracker_id)
+            if bounds is None:
+                continue
+            spread = max(bounds[1] - bounds[0], bounds[3] - bounds[2])
+            if (
+                spread <= self.static_max_spread
+                and self.id_frame_counts.get(tracker_id, 0) >= self.static_min_frames
+            ):
+                static_ids.add(tracker_id)
+        return static_ids
+
+    def unique_total(self) -> int:
+        """Total final: confirmados menos os objetos fixos na tela."""
+        return len(self.confirmed_unique_ids - self.static_track_ids())
 
     def annotate_linezone(self, frame: np.ndarray) -> np.ndarray:
         """Desenha a LineZone no frame caso esteja habilitada."""

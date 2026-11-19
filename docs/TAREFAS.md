@@ -16,22 +16,28 @@ Legenda de prioridade:
 - [x] `.gitignore`: removida a linha solta `aa`.
 - [x] Limpeza: vídeos gerados, `cache/`, `__pycache__/` e `saida.mp4` apagados; mantidos `video-gado.mp4` e `gado.webm`.
 
+## Feito em 18/11/2026
+
+- [x] **T1. Referência humana.** Contados os 3 frames (`15 → 40`, `98 → 44`, `149 → 35`) e estimado o total distinto (**≈70**, 69–70) assistindo até o frame 491. Gravado em `validation/ground_truth.json` (`--total 70 --end 491`).
+- [x] **T4. Métrica de acerto.** `validate.py gt --total/--end/--note`; `load_ground_truth(kind="total")`; `tune.py` usa o total distinto quando a execução cobre a mesma faixa (senão avisa) e ganhou `--end-frame`.
+- [x] **Filtro de marca d'água** (não estava nas tarefas): o watermark do TikTok confirmava como animal. `counter.static_track_ids()` descarta ID com centro variando ≤ 10 px em ≥ 100 frames. `conf 0.25 → 0.15` reduziu o erro de **−20% para −6%** (66 confirmados para 70).
+
 ## P0: credibilidade
 
-- [ ] **T1. Referência humana (você).**
+- [x] **T1. Referência humana (você).**
   - Contar os bovinos em `validation/video-gado_f00015.png`, `f00098.png` e `f00149.png`, ignorando as caixas. Registrar com `python validate.py gt --video video-gado.mp4 --frame <N> --count <C>`.
   - Se possível, estimar também o **total de animais distintos** do vídeo, assistindo devagar.
-  - *Critério:* `validation/ground_truth.json` existe e foi feito por humano.
+  - *Critério:* `validation/ground_truth.json` existe e foi feito por humano. — **Feito.**
 - [ ] **T2. Plano de treinamento mínimo** (`docs/PLANO-TREINAMENTO.md`): `train.py`, `pseudo_label.py`, dataset público anotado, treino no Colab e tabela antes × depois.
   - *Critério:* tabela da Etapa 4 preenchida e `results.png` salvo.
 - [ ] **T3. Atualizar `APRESENTACAO.md` e `README.md`** com os números sem vinheta (56 / 89 / 1,59) e as ressalvas honestas:
   - a referência ainda está pendente;
   - fragmentação menor não é o mesmo que contagem certa.
-  - *Critério:* nenhum número dos slides diverge dos logs em `validation/`.
-- [ ] **T4. Métrica de acerto em `validate.py`.**
+  - *Critério:* nenhum número dos slides diverge dos logs em `validation/`. — **README e CLAUDE.md feitos; `APRESENTACAO.md` pendente.**
+- [x] **T4. Métrica de acerto em `validate.py`.**
   - Hoje `load_ground_truth()` usa o `max()` entre frames (o pico). Adicionar uma referência de **total distinto por vídeo** (chave separada no JSON) e fazer o `tune.py` reportar o erro contra ela.
   - Mexe na lógica de validação; combinar antes.
-  - *Critério:* `tune.py` mostra o erro % contra o total distinto.
+  - *Critério:* `tune.py` mostra o erro % contra o total distinto. — **Feito.**
 
 ## P1: qualidade da contagem
 

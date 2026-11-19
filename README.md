@@ -49,15 +49,15 @@ Benchmark local (40 frames amostrados, `conf=0.35`, `iou=0.45`, CPU):
 | `video-gado.mp4` (oblíquo) | 12,5 detecções/frame | **13,3** (0,19 s/frame) | 14,1 (0,49 s/frame) |
 | `gado.webm` (denso) | 2,3 detecções/frame | **18,9** | 20,9 (1,89 s/frame) |
 
-Pipeline completo: `gado.webm` **23 → 128** confirmados; `video-gado.mp4` 72 → 59 (calibração do tracker de 04/11/2026 — ver seção abaixo). A fragmentação de IDs ainda é o gargalo.
+Pipeline completo (padrão de 18/11/2026, `conf 0,15` + `matching 0,90`): `gado.webm` **23 → 132** confirmados; `video-gado.mp4 [0:491]` **72 → 66**, contra **70 contados à mão** (erro −6%).
 
 **Onde fica:** `models/yolo11ft.pt` — já configurado em `config.MODEL_WEIGHTS`. Instruções de download em [`models/README.md`](models/README.md).
 
-**Calibração para distantes/agrupados:** `CONFIDENCE_THRESHOLD=0.25` e `IOU_THRESHOLD=0.60` (mesma velocidade, +8–11% na contagem). Ajuste fino sem editar código:
+**Calibração de 18/11/2026 (contra contagem humana):** `CONFIDENCE_THRESHOLD=0.15` e `IOU_THRESHOLD=0.60`. Caixas fracas não criam IDs novos (a ativação é 0.30), mas mantêm o track vivo quando o animal pisca por 1–2 frames. Ajuste fino sem editar código:
 
 ```bash
-python main.py --input gado.webm --output saida.mp4 --conf 0.25 --iou 0.60 --imgsz 640
-# --conf menor  -> pega animais distantes (e mais ruído)
+python main.py --input gado.webm --output saida.mp4 --conf 0.15 --iou 0.60 --imgsz 640 --end-frame 491
+# --conf menor  -> pega animais distantes e mantém o track vivo (novo padrão)
 # --iou maior   -> preserva caixas de animais agrupados
 # --imgsz maior -> detecta melhor animais pequenos (mais lento)
 ```
@@ -97,23 +97,52 @@ Resultado nos vídeos completos (mesmo modelo, mesmos limiares de detecção, me
 
 Os IDs caíram 43% e 59%: o mesmo animal deixou de ser contado 3 vezes. A contagem final mudou pouco (‑4% no denso, ‑14% no oblíquo) porque os IDs duplicados antes **também** confirmavam.
 
+---
+
+## 🎯 Contagem de referência e erro medido (18/11/2026)
+
+Até aqui o projeto media **fragmentação**, não **acerto**. Com a contagem manual do dono do projeto, isso virou erro em %:
+
+* Frames contados à mão em `video-gado.mp4`: **15 → 40**, **98 → 44**, **149 → 35** bois (o detector via 22, 20 e 20: recall por caixa de ~50%).
+* Total de animais **distintos** em 0..491: **≈ 70** (69–70; a câmera gira e atrapalha a contagem).
+* Referência gravada em `validation/ground_truth.json` (`python validate.py gt --video video-gado.mp4 --total 70 --end 491`).
+
+| Configuração | Confirmados | Erro vs 70 | IDs | Fragmentação |
+| :--- | :--- | :--- | :--- | :--- |
+| `conf 0,25` (padrão anterior) | 56 | −20% | 89 | 1,59 |
+| `conf 0,15` | 67 | −4% | 89 | 1,33 |
+| **`conf 0,15` + filtro de objeto fixo (atual)** | **66** | **−6%** | 89 | 1,35 |
+
+O `conf 0,15` não criou nenhum ID novo (os 89 são os mesmos): as caixas fracas só **mantêm o track vivo**, que é o papel do ByteTrack. Os 56 animais do `0,25` estão todos entre os 66.
+
+**Falso positivo encontrado e corrigido:** a marca d'água do TikTok é detectada como boi e confirma pela persistência (ID #38, centro variando **1 px em 339 frames**, conf 0,36). O `counter.py` agora descarta IDs cujo centro variou ≤ 10 px vivendo ≥ 100 frames (`STATIC_TRACK_MAX_SPREAD` / `STATIC_TRACK_MIN_FRAMES`). Um boi sob drone parado varia muito mais (o mais parado do vídeo variou 217 px).
+
+> **Ressalva:** 70 é uma estimativa humana (±1) e o filtro de objeto fixo é conservador de propósito. O erro de −6% é a melhor medida disponível, não uma garantia.
+
+No vídeo denso (`gado.webm`, 644 frames) o `conf 0,15` muda pouco: **128 → 132 confirmados / 181 IDs / frag 1,37** (antes 128 / 182 / 1,42) e nenhum objeto fixo foi descartado — o ganho do limiar baixo aparece no vídeo oblíquo, onde os animais são pequenos.
+
 ### Ferramentas de medição
 
 ```bash
 # 1. Relatório de fragmentação por ID (CSV em validation/)
-python validate.py report --input video-gado.mp4 --limit 150
+python validate.py report --input video-gado.mp4 --limit 491
 
 # 2. Frames-chave anotados para contagem manual (referência)
 python validate.py frames --input video-gado.mp4 --limit 150 --pick-best 3
 
 # 3. Registrar a contagem manual feita na imagem
-python validate.py gt --video video-gado.mp4 --frame 15 --count 24
+python validate.py gt --video video-gado.mp4 --frame 15 --count 40
 
-# 4. Grid de parâmetros usando só o cache de detecções (sem rodar o YOLO de novo)
-python tune.py --input video-gado.mp4 --limit 150 --matchings 0.70,0.80,0.90,0.95
+# 4. Total de animais distintos do vídeo (referência do erro)
+python validate.py gt --video video-gado.mp4 --total 70 --end 491
+
+# 5. Grid de parâmetros usando só o cache de detecções (sem rodar o YOLO de novo)
+python tune.py --input video-gado.mp4 --end-frame 491 --matchings 0.70,0.80,0.90
 ```
 
-> **Atenção metodológica:** `confirmados` não é monotônico em relação à fragmentação. Numa janela em que um animal fica no quadro mas o ID quebra em pedaços menores que 15 frames, ele **não** confirma (subcontagem); quando os pedaços são maiores, ele confirma duas vezes (supercontagem). Medimos os dois efeitos: na janela `[450:600]` do `video-gado.mp4`, o pico simultâneo é 23 e o total confirmado era 16 com `matching=0.70` e 23 com `0.90`. Por isso a **contagem manual de referência** (passo 2–3) é obrigatória antes de afirmar precisão.
+> O `tune.py` só compara com o total distinto quando a execução cobre a mesma faixa de frames da referência; para janelas ele avisa e usa o pico por frame.
+
+> **Atenção metodológica:** `confirmados` não é monotônico em relação à fragmentação. Numa janela em que um animal fica no quadro mas o ID quebra em pedaços menores que 15 frames, ele **não** confirma (subcontagem); quando os pedaços são maiores, ele confirma duas vezes (supercontagem). Na janela `[450:600]` do `video-gado.mp4`, o pico simultâneo é 23 e o total confirmado era 16 com `matching=0.70` e 23 com `0.90`. Por isso o erro só é interpretável contra a **contagem manual** (seção acima).
 
 **Ajuste fino sem editar código** (novas flags do `main.py`):
 
@@ -124,7 +153,7 @@ python main.py --input video-gado.mp4 --output saida.mp4 \
 # --streak-tol N     -> tolera N frames ausentes antes de zerar a persistência
 ```
 
-**Parâmetro `STREAK_GAP_TOLERANCE`:** a persistência ainda é consecutiva (`0`). Tolerar 2 frames ausentes recupera animais que "piscam" (na janela `[450:600]`, 16 → 23 confirmados, igual ao pico), mas aumenta ~7% o total na janela `[0:150]` — sem referência manual não dá para dizer qual dos dois está certo. Ficou como experimento (`--streak-tol`), não como padrão.
+**Parâmetro `STREAK_GAP_TOLERANCE`:** a persistência ainda é consecutiva (`0`). Tolerar 2 frames ausentes recupera animais que "piscam" (na janela `[450:600]`, 16 → 23 confirmados, igual ao pico), mas aumenta ~7% o total na janela `[0:150]`. Com a referência humana agora é possível medir isso por erro (tarefa T8 em `docs/TAREFAS.md`); até lá fica como experimento (`--streak-tol`).
 
 ---
 

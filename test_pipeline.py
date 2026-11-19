@@ -160,6 +160,47 @@ class TestCattleSystem(unittest.TestCase):
         counts = counter.update(dets)
         self.assertEqual(counts["confirmed_unique_total"], 1)
 
+    def test_static_overlay_discarded_from_total(self):
+        """
+        Um objeto fixo na tela (marca d'água) confirma pela persistência, mas não
+        pode entrar no total: o centro da caixa não se desloca com a câmera.
+        Um animal que se move continua contado.
+        """
+        counter = CattleCounter(
+            frame_width=self.width,
+            frame_height=self.height,
+            min_persistence=5,
+            static_max_spread=10,
+            static_min_frames=20,
+        )
+        fixed = sv.Detections(
+            xyxy=np.array([[300, 300, 350, 350]], dtype=np.float32),
+            confidence=np.array([0.40]),
+            tracker_id=np.array([1]),
+        )
+
+        # 25 frames no mesmo pixel: ID fixo na tela
+        for _ in range(25):
+            counter.update(fixed)
+
+        self.assertEqual(len(counter.confirmed_unique_ids), 1)
+        self.assertEqual(counter.static_track_ids(), {1})
+        self.assertEqual(counter.unique_total(), 0)
+
+        # Um segundo ID que anda 8 px por frame é um animal e permanece
+        for step in range(25):
+            moving = sv.Detections(
+                xyxy=np.array(
+                    [[100 + 8 * step, 100, 150 + 8 * step, 150]], dtype=np.float32
+                ),
+                confidence=np.array([0.80]),
+                tracker_id=np.array([2]),
+            )
+            counter.update(moving)
+
+        self.assertEqual(counter.static_track_ids(), {1})
+        self.assertEqual(counter.unique_total(), 1)
+
     def test_hud_rendering(self):
         """Garante que a renderização do HUD não corrompe o frame ou dimensões."""
         frame = np.zeros((self.height, self.width, 3), dtype=np.uint8)

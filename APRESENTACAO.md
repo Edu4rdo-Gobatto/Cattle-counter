@@ -74,7 +74,7 @@ Abre a janela com o tracking ao vivo. Controles: **[ESPAÇO]** pausa, **[F]** te
 **Passo a passo manual:**
 ```powershell
 .venv\Scripts\activate                                                # 1. ativa o ambiente Python
-python -m unittest test_pipeline -v                                   # 2. testes automáticos (5 testes)
+python -m unittest test_pipeline -v                                   # 2. testes automáticos (9 testes)
 python main.py --input video-gado.mp4 --output resultado.mp4 --show   # 3. processa e exibe
 ```
 
@@ -103,15 +103,16 @@ python main.py --input video-gado.mp4 --output resultado.mp4 --show   # 3. proce
 
 | Teste | Resultado |
 | :--- | :--- |
-| Testes automáticos | **8 de 8 passaram** |
+| Testes automáticos | **9 de 9 passaram** |
 | Modelo especializado `yolo11ft.pt` (YOLOv11, transfer learning) | ~8x mais detecções que o `yolov8n` no vídeo denso |
-| `video-gado.mp4` (20 s, 611 quadros, Nelore, drone baixo e inclinado) | **59 confirmados** (eram 72 com o COCO); ~4,7 quadros/s |
-| `gado.webm` (1080x1920, rebanho denso, drone alto) | **128 confirmados** (eram 23 com o COCO) |
-| Ajuste distantes/agrupados (`conf 0.25`, `iou 0.60`) | +8–11% na contagem, mesma velocidade |
+| `video-gado.mp4` (20 s, 611 quadros, Nelore, drone baixo e inclinado) | **66 confirmados** (eram 72 com o COCO) para **70 contados à mão** = **erro −6%**; ~4,5 quadros/s |
+| `gado.webm` (1080x1920, rebanho denso, drone alto) | **132 confirmados** (eram 23 com o COCO) |
+| Ajuste distantes/agrupados (`conf 0,25`, `iou 0,60`) | +8–11% na contagem, mesma velocidade |
 | Calibração do rastreador (`matching` 0,70 → 0,90) | fragmentação **2,61 → 1,75** e **3,30 → 1,42**; IDs 180 → 103 e 439 → 182 |
+| `conf 0,25 → 0,15` (18/11) | **56 → 67 confirmados** com os mesmos 89 IDs: erro vs. humano **−20% → −4%** |
+| Filtro de marca d'água (18/11) | remove 1 falso positivo do logo do TikTok; total final **66 (−6%)** |
 | SAHI (`--slicing`) no `gado.webm` | 18,9 → 20,9 detecções/frame, ~1,9 s/frame |
-| SAHI (`--slicing`) no `video-gado.mp4` | **66 confirmados** (eram 64), 227 IDs, 2,6 quadros/s |
-| Limitação restante | fragmentação de IDs (1,4–1,8) ainda distorce o total; falta contagem manual de referência |
+| Limitação restante | recall do detector: as caixas veem ~50% dos animais de um quadro (22 de 40); fragmentação 1,35 |
 
 ---
 
@@ -133,7 +134,10 @@ O ByteTrack mantém o ID guardado por 45 quadros (~1,5 s). Se o boi reaparecer n
 O COCO identifica os Nelore (gado branco) como `sheep` e, em voo alto, quase não via os animais (2,3 detecções/frame no vídeo denso). Trocamos por um modelo treinado em gado aéreo (`yolo11ft.pt`), que só tem a classe `cow` e detecta ~8× mais.
 
 **"A contagem está certa?"**
-Ainda é uma estimativa. Hoje o `gado.webm` dá **128 confirmados** e o `video-gado.mp4`, **59**. O que melhoramos de forma mensurável foi o rastreamento: a fragmentação (o mesmo animal ganhando um número novo depois de perder o rastreio) caiu de **3,30 para 1,42** no vídeo denso e de **2,61 para 1,75** no oblíquo, ajustando só o limiar de associação do ByteTrack. Sabemos que ainda sobra erro nos dois sentidos — um animal que quebra em pedaços curtos pode não confirmar (subcontagem) e pedaços longos podem confirmar duas vezes (supercontagem). O passo seguinte é comparar com uma contagem manual de referência (`validate.py`) e depois compensar o movimento da câmera (CMC).
+Agora temos como responder: **erro de −6%**. Contamos à mão 3 quadros (40, 44 e 35 bois) e estimamos **≈70 animais distintos** no vídeo. O sistema conta **66**. Para chegar lá mudamos duas coisas medidas: baixamos o limiar de confiança de 0,25 para 0,15 (de 56 para 67 confirmados, sem criar nenhum ID novo — as caixas fracas só mantêm o rastreio vivo) e filtramos um falso positivo sistemático, a marca d'água do TikTok, que era detectada como boi e ficava parada na tela (1 px em 339 quadros). Antes dessas mudanças o erro era **−20%**. O que ainda limita é o **recall**: as caixas pegam ~50% dos animais de um quadro, então parte do acerto vem de o tracker recuperar o animal em quadros seguintes.
+
+**"Como vocês sabem que a contagem está certa?"**
+Com contagem humana de referência (`validation/ground_truth.json`): 3 quadros contados à mão e o total de animais distintos do vídeo. O `tune.py` agora reporta o **erro %** contra esse total, não só a fragmentação. Também comparamos os animais de duas configurações **pela posição** (não pelo número do ID, que é renumerado a cada execução): os 56 animais do limiar 0,25 estão todos entre os 66 atuais.
 
 **"Roda em tempo real?"**
 Na CPU do notebook, a ~5 FPS com o modelo especializado (o vídeo tem 30 FPS): processa em cerca de 6× o tempo do vídeo. O código já aceita GPU (CUDA), basta trocar `DEVICE` em [config.py:21](config.py#L21), e com GPU passaria do tempo real. Para contar um rebanho, processar depois do voo é suficiente.
@@ -145,7 +149,7 @@ Criamos um medidor (`validate.py report`): ele roda o rastreamento e conta, para
 IoU (*Intersection over Union*) mede quanto duas caixas se sobrepõem. O NMS (*Non-Maximum Suppression*) usa o IoU para apagar caixas duplicadas sobre o mesmo animal e deixar só a de maior confiança.
 
 **"Como vocês garantem que o código funciona?"**
-Com testes automáticos em [test_pipeline.py](test_pipeline.py): persistência (só conta após 15 quadros), reset da persistência quando o ID some, ruído (2 quadros não conta), giro de 360° (3 animais por 50 quadros = 3, não 150), HUD e SAHI. Hoje são **8 testes, todos passando**.
+Com testes automáticos em [test_pipeline.py](test_pipeline.py): persistência (só conta após 15 quadros), reset da persistência quando o ID some, ruído (2 quadros não conta), giro de 360° (3 animais por 50 quadros = 3, não 150), objeto fixo na tela (marca d'água sai do total), HUD e SAHI. Hoje são **9 testes, todos passando**.
 
 **"Por que separar em vários arquivos?"**
 Cada arquivo tem uma responsabilidade. Para trocar o modelo, mexemos só no detector. Para trocar a regra de contagem, só no counter. Isso facilita testar, manter e evoluir o código.
@@ -168,7 +172,9 @@ Cada arquivo tem uma responsabilidade. Para trocar o modelo, mexemos só no dete
 
 ## 6. Checklist antes da aula
 
-- [ ] Rodar `.\run.bat` uma vez antes e confirmar o total (**72**).
+- [ ] Rodar uma vez antes e confirmar o total (**66**):
+  `.\.venv\Scripts\python.exe main.py --input video-gado.mp4 --output resultado.mp4 --show --end-frame 491`
+  O `.\run.bat` (demo ao vivo) não corta a vinheta, então conta alguns bois a mais — use-o para mostrar o tracking, não para conferir o número.
 - [ ] Ter o [video-gado-anotado.mp4](video-gado-anotado.mp4) aberto como **plano B**, caso o computador da sala seja lento ou não tenha o ambiente.
 - [ ] No Windows, use `.\run.bat`. O `./run.sh` é só para Linux.
 - [ ] O primeiro quadro pode demorar alguns segundos (carregamento do modelo). Avise a turma para não parecer travado.
