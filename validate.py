@@ -412,6 +412,8 @@ def cmd_gt(args) -> None:
                 "--total (total de animais distintos do vídeo)."
             )
         video[str(args.frame)] = int(args.count)
+        if args.note:
+            video[NOTE_KEY] = args.note
         print(f"Referência registrada: {args.video} frame {args.frame} -> {args.count} bovinos")
 
     GROUND_TRUTH_PATH.write_text(
