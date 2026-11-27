@@ -29,6 +29,13 @@ Legenda de prioridade:
 - [x] **Demo sem `video-gado.mp4`.** `run.bat`/`run.sh` agora aceitam `gado.webm` como reserva (o `.mp4` não está na pasta).
 - [x] **`.gitignore`.** Adicionado `runs/` (pesos gerados do treino).
 
+## Feito em 27/11/2026 (2ª parte — sem vídeo oficial, execução autônoma)
+
+- [x] **Validação `gado.webm [0:150]` (sem humano ainda).** `report`: 12,9/frame, pico 31, 41 confirmados / 66 IDs / frag 1,61. Grid: 0.70 → 3,94; 0.80 → 2,12; **0.90 → 1,61** (confirma o padrão). Cache em `cache/gado_f0_150_c0.15_i0.60_s640.npz`, CSV em `validation/tune_gado_f0_150_c0.15.csv`.
+- [x] **Frames p/ referência humana do `gado.webm`.** Gerados `validation/gado_f00018.png`, `f00067.png`, `f00147.png`. Falta: `validate.py gt --video gado.webm --frame N --count C` + `--total X`.
+- [x] **Dataset sem API key.** Criado `download_dataset.py` (HF `Francesco/aerial-cows`, CC BY 4.0, 1084/299/340) + conversão COCO→YOLO + `data.yaml`. Instalado via `uv pip` (venv uv não tem pip interno). Download rodando em background.
+- [ ] **Pendente humano/Colab.** Contagem dos 3 frames do `gado.webm`, `yolo val` linha base, treinos A e A+B no Colab, tabela Etapa 4.
+
 ## P0: credibilidade
 
 - [x] **T1. Referência humana (você).**
