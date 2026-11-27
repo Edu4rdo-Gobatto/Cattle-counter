@@ -47,11 +47,10 @@ Execução sem chave:
    - `validate.py report --input <video>` + `tune.py --input <video> --matchings 0.70,0.80,0.90 --tolerances 0`
    - ranking por erro vs humano, empate → menor frag.
 3. Dataset: terminar `download_dataset.py`, rodar `yolo val` base.
-4. Treino (Colab T4):
-   - A: `python train.py --data data/datasets/aerial-cows/data.yaml --name a`
-   - Pseudo: `python pseudo_label.py --input gado.webm --output data/pseudo`
-   - A+B com data.yaml combinado → `--name ab`
-   - `yolo val` nos 3 modelos (base, A, A+B) no mesmo split test.
+4. Treino (Colab T4) — feito 27/11, modelo A:
+   - Treino: 30 épocas, valid mAP50 0,495; test (340) P 0,760 / R 0,607 / mAP50 0,652 (base era 0,061).
+   - Trazer `runs/detect/runs/train/a/weights/best.pt` do Colab para `models/best_a.pt` e avaliar no `gado.webm`.
+   - Pseudo A+B (opcional): `python pseudo_label.py --input gado.webm --output data/pseudo`.
 5. Avaliação nos vídeos (mesmo protocolo p/ os 3 modelos):
    - det/frame e s/frame via `tune.py` (cache por modelo).
    - confirmados / IDs / frag via `tune.py --matchings 0.90 --tolerances 0`.

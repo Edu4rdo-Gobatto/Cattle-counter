@@ -83,13 +83,15 @@ Mesmo comando, com o `data.yaml` combinando o dataset público e os pseudo-rótu
 | Confirmados / IDs / frag | idem | `tune.py --matchings 0.90 --tolerances 0` |
 | **Erro de contagem** | frames com referência humana | `validate.py gt` + `tune.py` |
 
-Tabela final para a apresentação:
+Tabela final para a apresentação (medido 27/11, Colab T4, `aerial-cows` test 340 imgs):
 
-| Modelo | mAP@50 (teste) | Recall (teste) | det/frame `gado.webm` | Confirmados `video-gado [0:491]` | Erro vs. humano |
-|---|---|---|---|---|---|
-| yolo11ft (base) | ? | ? | ~19 | 56 | ? |
-| + fine-tune A | ? | ? | ? | ? | ? |
-| + fine-tune A+B | ? | ? | ? | ? | ? |
+| Modelo | mAP@50 (teste) | Recall (teste) | P (teste) | det/frame `gado.webm` | Confirmados `gado.webm [0:644]` | Erro vs. humano (100) |
+|---|---|---|---|---|---|---|
+| yolo11ft (base) | 0,061 | 0,143 | 0,216 | 19,7 | 129 | +29% |
+| + fine-tune A | **0,652** | **0,607** | **0,760** | ? | ? | ? |
+| + fine-tune A+B | ? | ? | ? | ? | ? | ? |
+
+Falta: baixar `best.pt` do Colab para `models/best_a.pt` e rodar `tune.py`/`main.py --model` no `gado.webm` para preencher det/frame, confirmados e erro.
 
 ### Etapa 5: decisão
 
