@@ -69,7 +69,6 @@ class CattleDetector:
             verbose=False,
         )[0]
 
-        # Conversão nativa e vetorizada para supervision
         return sv.Detections.from_ultralytics(results)
 
     def detect(self, frame: np.ndarray) -> sv.Detections:

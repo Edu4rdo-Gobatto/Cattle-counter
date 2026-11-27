@@ -1,0 +1,4 @@
+activation,matching,tol,confirmed,raw,static,total_ids,frag,peak,fragments,junk
+0.3,0.7,0,0,0,0,16,inf,3,5,11
+0.3,0.8,0,1,1,0,15,15.0,3,9,5
+0.3,0.9,0,0,0,0,12,inf,3,8,3

@@ -7,16 +7,12 @@ Otimizado para: AMD Ryzen 7 5700U (8C/16T, CPU Processing)
 from pathlib import Path
 import os
 
-# ==============================================================================
-# 1. DIRETÓRIOS E ARQUIVOS
-# ==============================================================================
+# Diretórios e arquivos.
 BASE_DIR = Path(__file__).resolve().parent
 INPUT_VIDEO_PATH = BASE_DIR / "input_video.mp4"
 OUTPUT_VIDEO_PATH = BASE_DIR / "output_annotated_video.mp4"
 
-# ==============================================================================
-# 2. HARDWARE & INFERÊNCIA (AMD RYZEN 7 5700U)
-# ==============================================================================
+# Hardware e inferência.
 # 'cpu' para execução nativa no Ryzen 7
 DEVICE = "cpu"
 
@@ -34,37 +30,31 @@ MODEL_WEIGHTS = str(BASE_DIR / "models" / "yolo11ft.pt")
 # Resolução de inferência (640 para alta velocidade; 1280 para pequenos bovinos a grande altitude)
 INFERENCE_IMAGE_SIZE = 640
 
-# Limiares de detecção
 # conf 0.15 + iou 0.60: calibrado em 18/11/2026 contra a contagem humana
 # (70 animais distintos em 0..491). Caixas fracas (0.15-0.25) não criam IDs
 # novos (a ativação é 0.30), mas mantêm o track vivo quando o animal some por
 # 1-2 frames — foi o que levou o total de 56 para 67 (erro -20% -> -4%).
 # Custo: ~4,0-4,6 FPS contra 5,1 FPS e 1 falso positivo na marca d'água,
 # removido pelo filtro de track fixo (STATIC_TRACK_MAX_SPREAD).
-CONFIDENCE_THRESHOLD = 0.15  # Limiar de confiança mínima para considerar um animal
+CONFIDENCE_THRESHOLD = 0.15
 IOU_THRESHOLD = 0.60         # IoU do NMS (maior preserva animais agrupados)
 
 # O modelo especializado usa apenas a classe 0 = 'cow'.
 # Para o modelo COCO (yolov8n.pt), troque por [18, 19] (sheep + cow).
 CLASSES_OF_INTEREST = [0]
 
-# ==============================================================================
-# 2.1 DETECÇÃO POR FATIAS (SAHI / INFERENCE SLICER)
-# ==============================================================================
+# Detecção por fatias com SAHI.
 # Divide cada frame em fatias sobrepostas e detecta em cada uma. Melhora a
 # detecção de animais pequenos/distantes em voos altos, ao custo de ~8x mais
 # inferências. Desligado por padrão para manter a demo ao vivo rápida.
 USE_SLICING = False
 
-# Lado de cada fatia, em pixels (igual ao INFERENCE_IMAGE_SIZE)
 SLICE_SIZE = 640
 
 # Sobreposição entre fatias, em pixels (~20% de 640 reduz animais cortados na borda)
 SLICE_OVERLAP = 128
 
-# ==============================================================================
-# 3. RASTREAMENTO ESPACIAL (BYTETRACK VIA SUPERVISION)
-# ==============================================================================
+# Rastreamento com ByteTrack.
 # Taxa de quadros assumida caso não seja detectada no metadado do vídeo
 DEFAULT_FPS = 30
 
@@ -83,9 +73,7 @@ LOST_TRACK_BUFFER = 45
 # dois bois vizinhos).
 MINIMUM_MATCHING_THRESHOLD = 0.90
 
-# ==============================================================================
-# 4. LÓGICA DE CONTAGEM & ROBUSTEZ A GIROS 360° E CURVAS
-# ==============================================================================
+# Contagem e persistência.
 # Quantidade mínima de frames consecutivos que um ID precisa persistir
 # antes de ser confirmado como um animal real (elimina falsos positivos de vegetação/sombras)
 MIN_FRAMES_PERSISTENCE = 15
@@ -93,14 +81,11 @@ MIN_FRAMES_PERSISTENCE = 15
 # Tolerância a ausências curtas durante a confirmação.
 # O ByteTrack mantém o ID de um boi ocluído/indetectado por até LOST_TRACK_BUFFER
 # frames; com 0, um único frame perdido zera o streak (comportamento original).
-# Medição em video-gado.mp4 (Fase 1): tolerância 2 recupera animais que piscam,
-# mas aumenta ~7% o total confirmado sem referência manual que valide o ganho.
-# Mantido em 0 até existir contagem de referência (validation/ground_truth.json).
+# Medição histórica em video-gado.mp4: tolerância 2 aumentou ~7% sem referência
+# para validar o ganho. O efeito no gado.webm ainda não foi comparado; manter 0.
 STREAK_GAP_TOLERANCE = 0
 
-# ------------------------------------------------------------------------------
-# Filtro de objeto "colado na tela" (marca d'água / logo)
-# ------------------------------------------------------------------------------
+# Filtro de objeto fixo na tela.
 # Uma marca d'água não se move com o pasto: o centro da caixa fica praticamente
 # fixo durante centenas de frames, mesmo com o drone voando. Um bovino sempre
 # desloca com o movimento da câmera. Medição de 18/11/2026: o ID da marca do
@@ -124,9 +109,7 @@ ENABLE_LINEZONE = False
 LINEZONE_START_RELATIVE = (0.05, 0.50)  # 5% da borda esquerda, 50% da altura
 LINEZONE_END_RELATIVE = (0.95, 0.50)    # 95% da borda direita, 50% da altura
 
-# ==============================================================================
-# 5. ESTÉTICA VISUAL E TELEMETRIA (HUD NO VÍDEO ANOTADO)
-# ==============================================================================
+# Aparência e telemetria do HUD.
 # Espessura da linha do Bounding Box
 BOX_THICKNESS = 2
 
@@ -142,9 +125,7 @@ COLOR_TEXT = (255, 255, 255)          # Branco
 COLOR_PANEL_BG = (20, 20, 20)         # Cinza escuro quase preto
 PANEL_OPACITY = 0.75                  # Transparência do HUD superior
 
-# ==============================================================================
-# 6. EXIBIÇÃO AO VIVO (MODO APRESENTAÇÃO)
-# ==============================================================================
+# Exibição ao vivo.
 # Abre uma janela do OpenCV mostrando o vídeo anotado enquanto ele é processado
 SHOW_WINDOW = False
 WINDOW_NAME = "Contador Aereo de Bovinos"
@@ -152,9 +133,7 @@ WINDOW_NAME = "Contador Aereo de Bovinos"
 # Altura inicial da janela em pixels (a janela pode ser redimensionada ou maximizada)
 WINDOW_HEIGHT = 900
 
-# ==============================================================================
-# 7. TREINAMENTO / FINE-TUNING (PLANO-TREINAMENTO.md, T2)
-# ==============================================================================
+# Treinamento e fine-tuning (docs/PLANO-TREINAMENTO.md).
 # Todos os parâmetros do `train.py` e do `pseudo_label.py` ficam aqui (regra 6:
 # caminhos e parâmetros só no config.py). Nada de fine-tuning muda o pipeline
 # de contagem sozinho: trocar MODEL_WEIGHTS pelo best.pt novo é decisão
@@ -165,7 +144,7 @@ TRAIN_IMGSZ = 640
 TRAIN_BATCH = 16
 TRAIN_FREEZE = 10  # congela o backbone (transfer learning de fato)
 TRAIN_PATIENCE = 10  # early stopping sobre o mAP de validação
-TRAIN_PROJECT = "runs/train"
+TRAIN_PROJECT = str(BASE_DIR / "runs" / "train")
 TRAIN_NAME_A = "a"  # opção A: só dataset público anotado
 TRAIN_NAME_AB = "ab"  # opção A+B: público + pseudo-rótulos
 TRAIN_SEED = 0

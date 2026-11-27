@@ -42,9 +42,7 @@ TOTAL_DISTINCT_FRAMES_KEY = "total_distinct_frames"
 NOTE_KEY = "note"
 
 
-# ==============================================================================
-# CACHE DE DETECÇÕES
-# ==============================================================================
+# Cache de detecções
 def cache_path(
     input_path: Path,
     start: int,
@@ -52,11 +50,13 @@ def cache_path(
     confidence: float,
     iou: float,
     imgsz: int,
+    model_path: str = config.MODEL_WEIGHTS,
 ) -> Path:
     """Nome do arquivo de cache derivado de todos os parâmetros que mudam a detecção."""
+    suffix = model_suffix(model_path)
     return CACHE_DIR / (
         f"{input_path.stem}_f{start}_{limit}"
-        f"_c{confidence:.2f}_i{iou:.2f}_s{imgsz}.npz"
+        f"_c{confidence:.2f}_i{iou:.2f}_s{imgsz}{suffix}.npz"
     )
 
 
@@ -67,6 +67,7 @@ def detect_frames(
     confidence: float = config.CONFIDENCE_THRESHOLD,
     iou: float = config.IOU_THRESHOLD,
     imgsz: int = config.INFERENCE_IMAGE_SIZE,
+    model_path: str = config.MODEL_WEIGHTS,
     use_cache: bool = True,
 ) -> Tuple[List[sv.Detections], int, float]:
     """
@@ -76,7 +77,7 @@ def detect_frames(
     O resultado é cacheado em cache/*.npz: o YOLO roda uma vez e os
     experimentos de rastreamento podem ser repetidos à vontade.
     """
-    path = cache_path(input_path, start, limit, confidence, iou, imgsz)
+    path = cache_path(input_path, start, limit, confidence, iou, imgsz, model_path)
 
     if use_cache and path.exists():
         data = np.load(path, allow_pickle=False)
@@ -110,7 +111,7 @@ def detect_frames(
         cap.set(cv2.CAP_PROP_POS_FRAMES, start)
 
     detector = CattleDetector(
-        model_path=config.MODEL_WEIGHTS,
+        model_path=model_path,
         confidence=confidence,
         iou=iou,
         imgsz=imgsz,
@@ -166,9 +167,7 @@ def detect_frames(
     return detections, total_frames, fps
 
 
-# ==============================================================================
-# RASTREAMENTO (replay das detecções)
-# ==============================================================================
+# Replay do rastreamento
 def track_all(
     detections: Sequence[sv.Detections],
     fps: float,
@@ -227,9 +226,7 @@ def id_stats(counter: CattleCounter) -> List[Dict[str, int]]:
     return rows
 
 
-# ==============================================================================
-# SUBCOMANDO: frames (amostras para contagem manual)
-# ==============================================================================
+# Subcomando frames: amostras para contagem manual
 def pick_best_frames(reference_counts: Sequence[int], n: int, min_gap: int) -> List[int]:
     """Escolhe os N frames com mais detecções, separados por pelo menos min_gap."""
     order = sorted(range(len(reference_counts)), key=lambda i: reference_counts[i], reverse=True)
@@ -251,6 +248,7 @@ def cmd_frames(args) -> None:
         confidence=args.conf,
         iou=args.iou,
         imgsz=args.imgsz,
+        model_path=args.model,
     )
     counts = [len(d) for d in detections]
     chosen = pick_best_frames(counts, args.pick_best, args.min_gap)
@@ -288,7 +286,9 @@ def cmd_frames(args) -> None:
             cv2.FONT_HERSHEY_SIMPLEX, 0.55, (255, 255, 255), 1, cv2.LINE_AA,
         )
 
-        out = VALIDATION_DIR / f"{input_path.stem}_f{frame_number:05d}.png"
+        out = VALIDATION_DIR / (
+            f"{input_path.stem}{model_suffix(args.model)}_f{frame_number:05d}.png"
+        )
         cv2.imwrite(str(out), annotated)
         print(f"  frame {frame_number}: {len(det)} detecções -> {out}")
 
@@ -299,9 +299,7 @@ def cmd_frames(args) -> None:
     )
 
 
-# ==============================================================================
-# SUBCOMANDO: report (fragmentação por ID)
-# ==============================================================================
+# Subcomando report: fragmentação por ID
 def cmd_report(args) -> None:
     input_path = Path(args.input)
     detections, _, fps = detect_frames(
@@ -311,6 +309,7 @@ def cmd_report(args) -> None:
         confidence=args.conf,
         iou=args.iou,
         imgsz=args.imgsz,
+        model_path=args.model,
     )
     cap = cv2.VideoCapture(str(input_path))
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -323,7 +322,7 @@ def cmd_report(args) -> None:
     rows = id_stats(counter)
 
     VALIDATION_DIR.mkdir(exist_ok=True)
-    csv_path = VALIDATION_DIR / f"{input_path.stem}_ids.csv"
+    csv_path = VALIDATION_DIR / f"{input_path.stem}{model_suffix(args.model)}_ids.csv"
     with open(csv_path, "w", newline="", encoding="utf-8") as fh:
         writer = csv.DictWriter(fh, fieldnames=list(rows[0].keys()) if rows else [
             "tracker_id", "first_frame", "last_frame", "frames_seen",
@@ -379,9 +378,7 @@ def cmd_report(args) -> None:
         )
 
 
-# ==============================================================================
-# SUBCOMANDO: gt (contagem manual de referência)
-# ==============================================================================
+# Subcomando gt: contagem manual de referência
 def load_ground_truth_raw() -> Dict[str, Dict[str, object]]:
     """Conteúdo bruto do ground_truth.json (vazio se o arquivo não existir)."""
     if not GROUND_TRUTH_PATH.exists():
@@ -422,9 +419,7 @@ def cmd_gt(args) -> None:
     print(f"Arquivo: {GROUND_TRUTH_PATH}")
 
 
-# ==============================================================================
-# CLI
-# ==============================================================================
+# Interface de linha de comando
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Validação e diagnóstico do pipeline de contagem de bovinos."
@@ -433,6 +428,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     def common(p: argparse.ArgumentParser) -> None:
         p.add_argument("--input", required=True, help="Vídeo de entrada.")
+        p.add_argument("--model", default=config.MODEL_WEIGHTS, help="Pesos YOLO.")
         p.add_argument("--start", type=int, default=0, help="Primeiro frame.")
         p.add_argument("--limit", type=int, default=150, help="Quantos frames processar.")
         p.add_argument("--conf", type=float, default=config.CONFIDENCE_THRESHOLD)
@@ -491,6 +487,14 @@ def ground_truth_scope(video_name: str) -> Optional[Tuple[int, int]]:
     if isinstance(scope, list) and len(scope) == 2:
         return int(scope[0]), int(scope[1])
     return None
+
+
+def model_suffix(model_path: str) -> str:
+    """Evita que saídas de modelos diferentes sobrescrevam os mesmos arquivos."""
+    model = Path(model_path)
+    if model.resolve() == Path(config.MODEL_WEIGHTS).resolve():
+        return ""
+    return f"_m{model.stem}"
 
 
 if __name__ == "__main__":

@@ -9,7 +9,7 @@ modelo (opção B, via pseudo_label.py).
 
 Uso:
     python train.py --data data/datasets/aerial-cows/data.yaml
-    python train.py --data data/datasets/aerial-cows/data.yaml --name ab --pseudodata data/pseudo/data.yaml
+    python train.py --data data/datasets/aerial-cows/data.yaml --name ab --pseudodata data/aerial-cows-ab.yaml
     python train.py --smoke  # 1 época, imgsz 640, batch 2: só valida o ambiente
 """
 

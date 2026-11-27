@@ -22,6 +22,7 @@ __pycache__/
 
 # Diretórios de dados e outputs
 data/datasets/
+data/pseudo/
 data/input/
 data/output/
 

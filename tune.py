@@ -31,6 +31,7 @@ from validate import (
     detect_frames,
     ground_truth_scope,
     load_ground_truth,
+    model_suffix,
 )
 
 
@@ -102,6 +103,7 @@ def main() -> None:
         description="Grid de parâmetros do ByteTrack sobre detecções cacheadas."
     )
     parser.add_argument("--input", required=True)
+    parser.add_argument("--model", default=config.MODEL_WEIGHTS, help="Pesos YOLO.")
     parser.add_argument("--start", type=int, default=0)
     parser.add_argument("--limit", type=int, default=150)
     parser.add_argument(
@@ -156,6 +158,7 @@ def main() -> None:
         confidence=args.conf,
         iou=args.iou,
         imgsz=args.imgsz,
+        model_path=args.model,
     )
     if not detections:
         raise SystemExit("Nenhum frame processado.")
@@ -187,9 +190,9 @@ def main() -> None:
                     )
                 )
 
-    # Tabela
     print(f"\n{'=' * 88}")
     print(f"GRID DO TRACKER — {input_path.name} [{args.start}:{args.start + len(detections)}]"
+          f" | modelo {Path(args.model).name}"
           f" | conf cache {args.conf:.2f} | persistência {args.min_persistence}")
     print(f"{'=' * 88}")
     header = (
@@ -229,7 +232,8 @@ def main() -> None:
 
     VALIDATION_DIR.mkdir(exist_ok=True)
     csv_path = VALIDATION_DIR / (
-        f"tune_{input_path.stem}_f{args.start}_{len(detections)}_c{args.conf:.2f}.csv"
+        f"tune_{input_path.stem}_f{args.start}_{len(detections)}"
+        f"_c{args.conf:.2f}{model_suffix(args.model)}.csv"
     )
     with open(csv_path, "w", newline="", encoding="utf-8") as fh:
         writer = csv.DictWriter(fh, fieldnames=list(results[0].keys()))

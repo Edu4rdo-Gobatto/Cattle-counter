@@ -48,20 +48,32 @@ Os módulos estão **na raiz** do projeto:
 | `main.py` | Orquestra o pipeline, desenha o HUD e grava o vídeo anotado (`argparse`: `--input --output --model --enable-linezone --show --slicing --conf --iou --imgsz --track-act --min-match --streak-tol`) |
 | `validate.py` | Medição: `frames` (amostras p/ contagem manual), `report` (fragmentação por ID em CSV), `gt` (registra a referência manual) |
 | `tune.py` | Grid de parâmetros do ByteTrack sobre detecções cacheadas (não reroda o YOLO) |
-| `test_pipeline.py` | 9 testes `unittest` (contador, persistência, ruído, giro 360°, objeto fixo na tela, HUD, SAHI) |
+| `test_pipeline.py` | 10 testes `unittest` (contador, persistência, ruído, giro 360°, objeto fixo na tela, HUD, SAHI e isolamento de cache por modelo) |
 | `generate_test_video.py` | Gera um vídeo sintético (elipses sobre fundo verde) |
-| `run.bat` | Roda `main.py` com `input_video.mp4` ou, na falta dele, `test_drone_video.mp4` |
+| `run.bat` | Roda `main.py` com o vídeo passado como argumento ou escolhe um arquivo disponível, incluindo `gado.webm` |
 
 **Lógica de contagem (diferencial do projeto):** um `tracker_id` só entra no "TOTAL CONFIRMADO" depois de aparecer em `MIN_FRAMES_PERSISTENCE` (15) frames. Isso filtra falsos positivos (pedras, sombras) e torna a contagem imune a giros de 360° do drone, porque os mesmos IDs não são somados de novo. A LineZone (in/out) é opcional (`ENABLE_LINEZONE`) e serve para voos retilíneos em corredor.
 
 **Parâmetros principais (`config.py`):** `MODEL_WEIGHTS=models/yolo11ft.pt` (YOLOv11 especializado, 1 classe: `cow`), `CLASSES_OF_INTEREST=[0]`, `USE_SLICING=False` (`SLICE_SIZE=640`, `SLICE_OVERLAP=128`), `CONFIDENCE_THRESHOLD=0.15`, `IOU_THRESHOLD=0.60` (conf 0.15 calibrado em 18/11 contra a contagem humana), `TRACK_ACTIVATION_THRESHOLD=0.30`, `LOST_TRACK_BUFFER=45`, `MINIMUM_MATCHING_THRESHOLD=0.90` (0.70 era estrito demais — ver calibração de 04/11), `STREAK_GAP_TOLERANCE=0` (tolerância a frames ausentes na persistência, experimental), `STATIC_TRACK_MAX_SPREAD=10` / `STATIC_TRACK_MIN_FRAMES=100` (filtro de objeto fixo na tela, ver 18/11), `INFERENCE_IMAGE_SIZE=640`, `DEVICE="cpu"`, `CPU_NUM_THREADS` = metade de `os.cpu_count()`, `SHOW_WINDOW=False`. Para voltar ao COCO: `MODEL_WEIGHTS="yolov8n.pt"` e `CLASSES_OF_INTEREST=[18, 19]`.
+
+### Estado atualizado (27/11/2026)
+
+* Vídeo de desenvolvimento: `gado.webm`, 644 frames decodificados. `video-gado.mp4` não está mais no checkout.
+* Referência humana em `validation/ground_truth.json`: frames 18→38, 67→12, 147→47; total distinto estimado 100 em `[0:644]`.
+* Testes atuais: 10/10 passaram.
+* Resultado padronizado da base no vídeo completo: 19,7 detecções/frame, 129 confirmados / 184 IDs / fragmentação 1,43, erro +29% contra 100.
+* Fine-tune A (`models/best_a.pt`): P 0,760 / R 0,607 / mAP50 0,652 / mAP50-95 0,282 no split test público; no vídeo de desenvolvimento, 3,0 detecções/frame, 0 confirmados e 12 IDs no matching 0,90. Não adotar.
+* `config.MODEL_WEIGHTS` permanece em `models/yolo11ft.pt`. A decisão só muda se uma variante ganhar no teste público e no erro de contagem do vídeo.
+* Pseudo-rótulos A+B foram gerados de 22 frames: 362 caixas em 20 frames não vazios. A tentativa local parou após 15/70 batches da primeira época por limite de tempo; não há pesos finais. Retomar no Colab ou em execução com várias horas.
+* `tune.py` e `validate.py` aceitam `--model`; os caches e relatórios de modelos alternativos têm sufixo próprio. A avaliação de `best_a.pt` está em `validation/tune_gado_f0_644_c0.15_mbest_a.csv` e seu cache tem `_mbest_a`. O cache sem sufixo continua sendo o da base.
+* Os gráficos de validação A estão em `runs/detect/val-3/`. O `results.png` do treino A do Colab não foi trazido.
 
 ### Como executar
 ```bash
 .\run.bat                      # Windows: demo com janela ao vivo (./run.sh no Linux)
 .venv\Scripts\activate
 python -m unittest test_pipeline -v
-python main.py --input video-gado.mp4 --output saida.mp4 [--show] [--slicing] [--conf 0.15] [--iou 0.60] [--imgsz 640] [--end-frame 491]
+python main.py --input gado.webm --output saida.mp4 [--show] [--slicing] [--conf 0.15] [--iou 0.60] [--imgsz 640]
 ```
 O roteiro da apresentação em sala está em `APRESENTACAO.md`.
 
@@ -105,7 +117,7 @@ Relatório completo: `validation/RELATORIO-VALIDACAO.md`. Tarefas: `docs/TAREFAS
 * **Falso positivo sistêmico:** a marca d'água do TikTok é detectada e confirma (ID #38, 1 px de deslocamento em 339 frames). `counter.static_track_ids()` descarta IDs com centro variando ≤ 10 px em ≥ 100 frames. Resultado final: **66 confirmados / erro −6% / frag 1,35** (`--end-frame 491`).
 * **`tune.py`:** usa `total_distinct` quando a execução cobre a mesma faixa da referência, senão avisa e usa o pico; ganhou `--end-frame`; coluna nova `est` (descartados) e CSV com o `conf` no nome.
 * **Vídeo denso (`gado.webm`, 644 frames):** `conf 0,15` → **132 confirmados / 181 IDs / frag 1,37** (antes 128 / 182 / 1,42); nenhum objeto fixo descartado. O ganho do limiar baixo é do vídeo oblíquo, onde o animal é pequeno.
-* **Testes:** 9/9 OK (`test_static_overlay_discarded_from_total` cobre o filtro de objeto fixo).
+* **Testes:** 10/10 OK (`test_static_overlay_discarded_from_total` cobre o filtro de objeto fixo; `test_model_variants_use_separate_detection_caches` cobre o isolamento de cache por modelo).
 
 ### Já resolvido (commit `ffd5699` e ajustes seguintes)
 * ~~`CLASSES_OF_INTEREST = [18, 19]`~~ (histórico COCO): agora `[0]` com o modelo especializado.
@@ -114,17 +126,15 @@ Relatório completo: `validation/RELATORIO-VALIDACAO.md`. Tarefas: `docs/TAREFAS
 * HUD responsivo: quebra linha em vídeo vertical.
 * `CPU_NUM_THREADS` automático e sem menção fixa à CPU.
 * Janela ao vivo: `--show` / `SHOW_WINDOW` (espaço pausa, F tela cheia, Q/ESC sai).
-* `run.bat` (Windows) e `run.sh` (Linux): aceitam um vídeo como argumento ou usam o primeiro que existir entre `input_video.mp4`, `video-gado.mp4` e `gado-teste.mp4`, sempre com `--show`.
+* `run.bat` (Windows) e `run.sh` (Linux): aceitam um vídeo como argumento ou usam o primeiro arquivo disponível entre `input_video.mp4`, `video-gado.mp4`, `gado-teste.mp4` e `gado.webm`, sempre com `--show`.
 
 ### Pendências conhecidas
-1. **Fragmentação de IDs** — reduzida de 2,61 para 1,75 no `video-gado.mp4` e de 3,30 para 1,42 no `gado.webm` (calibração de 04/11); com o padrão de 18/11 ficou em **1,35** e **1,37**. Ainda assim o total é estimativa: em trechos onde o ID se parte em pedaços menores que 15 frames o animal não confirma (subcontagem) e pedaços longos confirmam duas vezes (supercontagem). O erro medido no `video-gado.mp4` é **−6%**.
-2. **Contagem manual de referência** — **feita em 18/11/2026** para o `video-gado.mp4` (`validation/ground_truth.json`, total ≈ 70). Falta para o `gado.webm` e para os frames-chave do vídeo denso.
-3. **Rebanho denso + drone alto + motion blur** (`gado.webm`, 1080x1920): o `yolov8n` subcontava fortemente (23 confirmados para 60+ animais visíveis num quadro). Com o modelo especializado `yolo11ft.pt` a contagem subiu para **132 confirmados** (~8x mais detecções/frame). Ajustes de limiar no COCO já testados (imgsz 1280, conf 0.25 etc.) não foram adotados: o limite era o modelo.
-4. **Modelo genérico:** ~~trocar por um `best.pt` do Roboflow~~ **Resolvido:** adotado `models/yolo11ft.pt` (YOLOv11, `xxilytoo/cattle_graze_model`, classe 0 = `cow`), baixado pronto (transfer learning, sem rotulagem).
-5. **Migrar o tracker** antes de atualizar a `supervision` para a 0.31+.
-6. ~~Linha solta `aa` no `.gitignore`~~ (removida em 05/11/2026).
-7. **Referência humana, saltos de track com 0.90 e recall em rebanho denso:** ver `docs/TAREFAS.md`.
-7. **`saida.mp4` (36 MB) e `yolov8n.pt` na raiz** — artefatos antigos, ignorados pelo git; outputs novos vão para `outputs/`.
+1. **Treino A+B:** retomar no Colab ou em uma execução com várias horas. A tentativa local parou na primeira época por limite de tempo.
+2. **Erro de contagem no `gado.webm`:** a base obteve +29% contra a referência humana de 100. O total continua estimado, pois fragmentos de ID podem não confirmar ou confirmar mais de uma vez.
+3. **Generalização:** coletar referências humanas em outros vídeos antes de apresentar uma faixa geral de erro.
+4. **Migrar o tracker** antes de atualizar a `supervision` para a 0.31+.
+5. `video-gado.mp4` não está no checkout; os resultados oblíquos antigos são históricos e não reproduzíveis neste momento.
+6. `saida.mp4` e `yolov8n.pt` na raiz são artefatos antigos, ignorados pelo git.
 
 ### Próximos passos estruturais
 * **SAHI (implementado, opcional):** `--slicing` fatia o frame em janelas 640x640 com overlap e funde as caixas com NMS. No `gado.webm` subiu de 18,9 para 20,9 detecções/frame, mas custa ~1,9 s/frame (≈10x mais lento); por isso `USE_SLICING=False` por padrão.

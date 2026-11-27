@@ -49,14 +49,22 @@ Benchmark local (40 frames amostrados, `conf=0.35`, `iou=0.45`, CPU):
 | `video-gado.mp4` (oblíquo) | 12,5 detecções/frame | **13,3** (0,19 s/frame) | 14,1 (0,49 s/frame) |
 | `gado.webm` (denso) | 2,3 detecções/frame | **18,9** | 20,9 (1,89 s/frame) |
 
-Pipeline completo (padrão de 18/11/2026, `conf 0,15` + `matching 0,90`): `gado.webm` **23 → 132** confirmados; `video-gado.mp4 [0:491]` **72 → 66**, contra **70 contados à mão** (erro −6%).
+Resultados históricos de 18/11/2026, `conf 0,15` + `matching 0,90`: `gado.webm` **23 → 132** confirmados; `video-gado.mp4 [0:491]` **72 → 66**, contra **70 contados à mão** (erro −6%). O estado atual, com protocolo padronizado, está abaixo.
+
+### Avaliação atual do fine-tune A (27/11/2026)
+
+O fine-tune `best_a.pt`, treinado no dataset "aerial-cows from Roboflow 100 (Roboflow Universe), CC BY 4.0", atingiu P 0,760, R 0,607, mAP50 0,652 e mAP50-95 0,282 no split test. No `gado.webm`, produziu 3,0 detecções/frame e 0 IDs confirmados no matching 0,90, com erro −100% contra a referência humana de 100 animais. O modelo não foi adotado; `config.MODEL_WEIGHTS` permanece em `models/yolo11ft.pt`.
+
+O resultado reproduzível atual da base no vídeo completo é 129 confirmados / 184 IDs / fragmentação 1,43, erro +29%. Os valores 132 e 66 acima são de execuções históricas; `video-gado.mp4` não está mais disponível.
+
+Os pseudo-rótulos para A+B foram gerados, mas o treino local em CPU parou na primeira época por limite de tempo. Não há pesos A+B avaliados.
 
 **Onde fica:** `models/yolo11ft.pt` — já configurado em `config.MODEL_WEIGHTS`. Instruções de download em [`models/README.md`](models/README.md).
 
 **Calibração de 18/11/2026 (contra contagem humana):** `CONFIDENCE_THRESHOLD=0.15` e `IOU_THRESHOLD=0.60`. Caixas fracas não criam IDs novos (a ativação é 0.30), mas mantêm o track vivo quando o animal pisca por 1–2 frames. Ajuste fino sem editar código:
 
 ```bash
-python main.py --input gado.webm --output saida.mp4 --conf 0.15 --iou 0.60 --imgsz 640 --end-frame 491
+python main.py --input gado.webm --output saida.mp4 --conf 0.15 --iou 0.60 --imgsz 640
 # --conf menor  -> pega animais distantes e mantém o track vivo (novo padrão)
 # --iou maior   -> preserva caixas de animais agrupados
 # --imgsz maior -> detecta melhor animais pequenos (mais lento)
@@ -65,13 +73,13 @@ python main.py --input gado.webm --output saida.mp4 --conf 0.15 --iou 0.60 --img
 **Como testar:**
 
 ```bash
-python main.py --input video-gado.mp4 --output saida.mp4                 # modelo especializado (padrão)
+python main.py --input gado.webm --output saida.mp4                      # modelo especializado (padrão)
 python main.py --input gado.webm --output saida_sahi.mp4 --slicing       # SAHI (mais lento, mais detecções)
 ```
 
 > Para voltar ao COCO: `--model yolov8n.pt` e ajustar `CLASSES_OF_INTEREST=[18, 19]` no `config.py`.
 
-**Linha de base antiga:** `video-gado.mp4` → 72 confirmados / 146 IDs; `gado.webm` → 23 confirmados / 104 IDs.
+**Linha de base COCO antiga:** `video-gado.mp4` → 72 confirmados / 146 IDs; `gado.webm` → 23 confirmados / 104 IDs. O arquivo oblíquo não está mais neste checkout.
 
 ---
 
@@ -99,9 +107,14 @@ Os IDs caíram 43% e 59%: o mesmo animal deixou de ser contado 3 vezes. A contag
 
 ---
 
-## 🎯 Contagem de referência e erro medido (18/11/2026)
+## 🎯 Contagem de referência e erro medido (histórico e estado atual)
 
-Até aqui o projeto media **fragmentação**, não **acerto**. Com a contagem manual do dono do projeto, isso virou erro em %:
+As medições abaixo de `video-gado.mp4` são históricas, pois o vídeo não está mais disponível. A referência atual para desenvolvimento é `gado.webm`.
+
+* Em `gado.webm`, a referência humana é 18 → 38, 67 → 12, 147 → 47 e total distinto estimado 100 em `[0:644]`.
+* Com `yolo11ft.pt`, conf 0,15 e matching 0,90, a contagem atual é 129 confirmados / 184 IDs / fragmentação 1,43, erro +29%.
+
+Registro histórico do vídeo oblíquo:
 
 * Frames contados à mão em `video-gado.mp4`: **15 → 40**, **98 → 44**, **149 → 35** bois (o detector via 22, 20 e 20: recall por caixa de ~50%).
 * Total de animais **distintos** em 0..491: **≈ 70** (69–70; a câmera gira e atrapalha a contagem).
@@ -119,25 +132,26 @@ O `conf 0,15` não criou nenhum ID novo (os 89 são os mesmos): as caixas fracas
 
 > **Ressalva:** 70 é uma estimativa humana (±1) e o filtro de objeto fixo é conservador de propósito. O erro de −6% é a melhor medida disponível, não uma garantia.
 
-No vídeo denso (`gado.webm`, 644 frames) o `conf 0,15` muda pouco: **128 → 132 confirmados / 181 IDs / frag 1,37** (antes 128 / 182 / 1,42) e nenhum objeto fixo foi descartado — o ganho do limiar baixo aparece no vídeo oblíquo, onde os animais são pequenos.
+No relatório histórico de 18/11, o `gado.webm` teve 132 confirmados. A execução padronizada atual retorna 129 confirmados / 184 IDs / frag 1,43. O resultado depende da execução e dos parâmetros; use a referência humana ao avaliar a contagem.
 
 ### Ferramentas de medição
 
 ```bash
 # 1. Relatório de fragmentação por ID (CSV em validation/)
-python validate.py report --input video-gado.mp4 --limit 491
+python validate.py report --input gado.webm --limit 644
 
 # 2. Frames-chave anotados para contagem manual (referência)
-python validate.py frames --input video-gado.mp4 --limit 150 --pick-best 3
+python validate.py frames --input gado.webm --limit 644 --pick-best 3
 
 # 3. Registrar a contagem manual feita na imagem
-python validate.py gt --video video-gado.mp4 --frame 15 --count 40
+python validate.py gt --video gado.webm --frame 18 --count 38
 
 # 4. Total de animais distintos do vídeo (referência do erro)
-python validate.py gt --video video-gado.mp4 --total 70 --end 491
+python validate.py gt --video gado.webm --total 100 --end 644
 
 # 5. Grid de parâmetros usando só o cache de detecções (sem rodar o YOLO de novo)
-python tune.py --input video-gado.mp4 --end-frame 491 --matchings 0.70,0.80,0.90
+python tune.py --input gado.webm --end-frame 644 --matchings 0.70,0.80,0.90
+python tune.py --input gado.webm --model models/best_a.pt --end-frame 644 --matchings 0.70,0.80,0.90
 ```
 
 > O `tune.py` só compara com o total distinto quando a execução cobre a mesma faixa de frames da referência; para janelas ele avisa e usa o pico por frame.

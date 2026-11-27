@@ -18,6 +18,10 @@ Invoke-WebRequest -Uri "https://raw.githubusercontent.com/xxilytoo/cattle_graze_
 O caminho já é o padrão em `config.MODEL_WEIGHTS`. Se o arquivo não existir, o
 `main.py` avisa com instruções em vez de estourar um erro genérico do Ultralytics.
 
+## Fine-tune A, não adotado
+
+`best_a.pt` é um experimento local, treinado no split público `aerial-cows` e não versionado. No split test obteve P 0,760 / R 0,607 / mAP50 0,652 / mAP50-95 0,282. No `gado.webm`, produziu 3,0 detecções/frame e 0 IDs confirmados em matching 0,90. O erro contra a referência humana de 100 foi −100%, então `config.MODEL_WEIGHTS` continua apontando para `yolo11ft.pt`.
+
 ## Alternativas testadas
 
 | Arquivo | Modelo | Observação |

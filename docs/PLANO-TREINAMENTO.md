@@ -74,29 +74,45 @@ python train.py   # yolo11ft.pt -> runs/train/a/weights/best.pt
 
 Mesmo comando, com o `data.yaml` combinando o dataset público e os pseudo-rótulos. Gera `runs/train/ab/`.
 
+```bash
+python pseudo_label.py --input gado.webm --output data/pseudo
+python train.py --name ab --pseudodata data/aerial-cows-ab.yaml
+```
+
 ### Etapa 4: avaliação (mesmo protocolo para os 3 modelos)
 
 | Métrica | Onde | Ferramenta |
 |---|---|---|
 | P / R / mAP@50 / mAP@50-95 | split **test** do dataset público | `yolo val` |
-| Detecções/frame e s/frame | `video-gado.mp4 [0:491]` e `gado.webm` | `tune.py` (cache por modelo) |
-| Confirmados / IDs / frag | idem | `tune.py --matchings 0.90 --tolerances 0` |
-| **Erro de contagem** | frames com referência humana | `validate.py gt` + `tune.py` |
+| Detecções/frame | `gado.webm [0:644]`, vídeo de desenvolvimento | `tune.py --model <pesos>` |
+| Confirmados / IDs / frag | `gado.webm [0:644]`, `matching=0.90`, `tol=0` | `tune.py --model <pesos>` |
+| **Erro de contagem** | mesma faixa da referência humana, total 100 | `validation/ground_truth.json` |
 
-Tabela final para a apresentação (medido 27/11, Colab T4, `aerial-cows` test 340 imgs):
+O `tune.py` e o `validate.py` aceitam `--model`; caches, relatórios e imagens recebem o nome do modelo para não misturar execuções. O cache sem sufixo continua reservado ao modelo padrão.
 
-| Modelo | mAP@50 (teste) | Recall (teste) | P (teste) | det/frame `gado.webm` | Confirmados `gado.webm [0:644]` | Erro vs. humano (100) |
-|---|---|---|---|---|---|---|
-| yolo11ft (base) | 0,061 | 0,143 | 0,216 | 19,7 | 129 | +29% |
-| + fine-tune A | **0,652** | **0,607** | **0,760** | ? | ? | ? |
-| + fine-tune A+B | ? | ? | ? | ? | ? | ? |
+`video-gado.mp4` não está mais disponível. A comparação de vídeo abaixo usa apenas o `gado.webm` e o mesmo limiar de detecção (conf 0,15, IoU 0,60, imgsz 640).
 
-Falta: baixar `best.pt` do Colab para `models/best_a.pt` e rodar `tune.py`/`main.py --model` no `gado.webm` para preencher det/frame, confirmados e erro.
+| Modelo | P (teste) | R (teste) | mAP@50 | mAP@50-95 | det/frame | Confirmados / IDs / frag | Erro vs. 100 |
+|---|---|---|---|---|---|---|---|
+| `yolo11ft` (base) | 0,216 | 0,143 | 0,061 | 0,019 | 19,7 | 129 / 184 / 1,43 | +29% |
+| Fine-tune A (`best_a.pt`) | 0,760 | 0,607 | 0,652 | 0,282 | 3,0 | 0 / 12 / não definido | −100% |
+| Fine-tune A+B (`best_ab.pt`) | pendente | pendente | pendente | pendente | pendente | pendente | pendente |
+
+O `best_a.pt` foi validado no split test localmente. Na avaliação de vídeo, o pico foi 31 caixas em um frame, mas o tracker chegou a apenas 3 ativos simultâneos; no matching 0,90, nenhum ID confirmou e 12 IDs foram criados. O grid de matching produziu 0 confirmados / 16 IDs em 0,70, 1 / 15 em 0,80 e 0 / 12 em 0,90. A fragmentação de A em 0,90 não é definida porque não houve IDs confirmados. A avaliação está registrada em `validation/tune_gado_f0_644_c0.15_mbest_a.csv` e usa o cache `cache/gado_f0_644_c0.15_i0.60_s640_mbest_a.npz`.
+
+O aumento de mAP no dataset público não se transferiu para o vídeo de desenvolvimento. O fine-tune A não substitui o modelo padrão.
+
+Para A+B, foram gerados pseudo-rótulos de 22 frames de `gado.webm` com `PSEUDO_CONF=0.5`: 362 caixas em 20 frames não vazios. O treino local foi interrompido pelo limite de execução após 15/70 batches da primeira época; nessa CPU, 30 épocas exigiriam algumas horas. Não há `best_ab.pt` nem métricas de A+B. Retomar no Colab ou em uma execução com tempo suficiente. Os pseudo-rótulos são usados apenas no treino; a avaliação continua no split test público e contra a referência humana do vídeo.
+
+Crédito do dataset: "aerial-cows from Roboflow 100 (Roboflow Universe), CC BY 4.0."
+
+As curvas PR e a matriz de confusão da validação local de A estão em `runs/detect/val-3/` e são regeneráveis. Os gráficos do treino A (`results.png`) não vieram junto com o checkpoint do Colab.
 
 ### Etapa 5: decisão
 
-- Se o fine-tune ganhar em mAP **e** em erro de contagem, troca `MODEL_WEIGHTS` para o `best.pt` novo e regrava o `models/README.md`.
-- Se não ganhar, mantém o `yolo11ft` e **apresenta o resultado negativo**: "o modelo base já estava no teto para este domínio; o gargalo é o rastreamento". Isso é um achado válido.
+- A decisão já está tomada para A: manter `MODEL_WEIGHTS=models/yolo11ft.pt`. A ganhou no mAP do dataset público, mas teve erro de −100% no vídeo de desenvolvimento.
+- Reavaliar a decisão quando A+B terminar. Só trocar o modelo padrão se a mesma variante melhorar tanto o mAP no split test quanto o erro de contagem no vídeo.
+- O resultado negativo de A é um achado válido: desempenho no dataset público não garante transferência para gado denso filmado de ângulo oblíquo.
 
 ---
 

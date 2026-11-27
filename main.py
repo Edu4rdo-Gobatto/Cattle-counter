@@ -151,7 +151,6 @@ def process_video(
     print(f"Modo LineZone:    {'ATIVADO' if enable_linezone else 'DESATIVADO (Rastreamento por Persistência)'}")
     print(f"Modo Fatiamento:  {'ATIVADO (SAHI)' if use_slicing else 'DESATIVADO'}")
 
-    # Leitura dos metadados do vídeo com OpenCV
     cap = cv2.VideoCapture(str(input_path))
     if not cap.isOpened():
         raise IOError(f"Falha ao abrir o arquivo de vídeo: {input_path}")
@@ -167,12 +166,10 @@ def process_video(
     print(f"Resolução:        {width}x{height} @ {fps:.2f} FPS")
     print(f"Total de Frames:  {total_frames}" + (f" (corte em --end-frame {end_frame})" if end_frame else ""))
 
-    # Configuração do escritor de vídeo de saída (Codec MP4V compatível universalmente)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     fourcc = cv2.VideoWriter_fourcc(*"mp4v")
     writer = cv2.VideoWriter(str(output_path), fourcc, fps, (width, height))
 
-    # Inicialização dos módulos do pipeline
     detector = CattleDetector(
         model_path=model_path,
         use_slicing=use_slicing,
@@ -192,7 +189,6 @@ def process_video(
         streak_gap_tolerance=streak_tolerance,
     )
 
-    # Anotadores Visuais da biblioteca Supervision
     box_annotator = sv.BoxAnnotator(
         thickness=config.BOX_THICKNESS,
         color=sv.Color.from_hex("#00BFFF"),  # Azul celeste vibrante
@@ -229,7 +225,6 @@ def process_video(
         "line_out": 0,
     }
 
-    # Loop principal de processamento
     frame_idx = 0
     start_total_time = time.time()
     last_time = start_total_time
@@ -249,31 +244,24 @@ def process_video(
                 if elapsed_frame > 0:
                     proc_fps = 1.0 / elapsed_frame
 
-                # 1. Inferência YOLO
                 detections = detector.detect(frame)
 
-                # 2. Atualização do ByteTrack
                 tracked_detections = tracker.update(detections)
 
-                # 3. Lógica de Contagem
                 counts = counter.update(tracked_detections)
 
-                # 4. Anotações Gráficas no Frame
                 annotated_frame = frame.copy()
 
-                # Desenha rastro dos animais
                 annotated_frame = trace_annotator.annotate(
                     scene=annotated_frame,
                     detections=tracked_detections,
                 )
 
-                # Desenha bounding boxes
                 annotated_frame = box_annotator.annotate(
                     scene=annotated_frame,
                     detections=tracked_detections,
                 )
 
-                # Rótulos (ID do boi + Confiança)
                 labels = []
                 if tracked_detections.tracker_id is not None and len(tracked_detections.tracker_id) > 0:
                     for idx, tid in enumerate(tracked_detections.tracker_id):
@@ -288,10 +276,8 @@ def process_video(
                         labels=labels,
                     )
 
-                # Desenha LineZone se habilitada teste
                 annotated_frame = counter.annotate_linezone(annotated_frame)
 
-                # Desenha Painel HUD Superior
                 annotated_frame = draw_hud(
                     frame=annotated_frame,
                     counts=counts,
@@ -301,7 +287,6 @@ def process_video(
                     enable_linezone=enable_linezone,
                 )
 
-                # Grava o quadro anotado no arquivo de saída
                 writer.write(annotated_frame)
                 pbar.update(1)
 

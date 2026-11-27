@@ -57,10 +57,8 @@ class CattleCounter:
         # Base do filtro de objeto fixo na tela (marca d'água, logo, poste).
         self.id_center_bounds: Dict[int, List[float]] = {}
 
-        # Conjunto de IDs confirmados que atingiram o limiar de persistência
         self.confirmed_unique_ids: Set[int] = set()
 
-        # Configuração opcional da LineZone
         self.line_zone: Optional[sv.LineZone] = None
         self.line_zone_annotator: Optional[sv.LineZoneAnnotator] = None
 
@@ -105,7 +103,6 @@ class CattleCounter:
                 active_ids.add(tracker_id)
                 self._update_center_bounds(tracker_id, tracked_detections.xyxy[index])
 
-                # Total de frames em que o ID já foi visto (diagnóstico)
                 self.id_frame_counts[tracker_id] = (
                     self.id_frame_counts.get(tracker_id, 0) + 1
                 )
@@ -120,7 +117,6 @@ class CattleCounter:
                     self.id_longest_streak.get(tracker_id, 0), streak
                 )
 
-                # Só confirma o animal após N frames consecutivos de rastreamento
                 if streak >= self.min_persistence:
                     self.confirmed_unique_ids.add(tracker_id)
 
@@ -136,7 +132,6 @@ class CattleCounter:
                 if missed > self.streak_gap_tolerance:
                     self.id_frame_streaks[tracker_id] = 0
 
-        # Atualiza a LineZone caso esteja habilitada
         line_in = 0
         line_out = 0
         if self.enable_linezone and self.line_zone is not None:

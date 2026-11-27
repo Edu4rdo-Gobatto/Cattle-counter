@@ -22,32 +22,28 @@ Legenda de prioridade:
 - [x] **T4. Métrica de acerto.** `validate.py gt --total/--end/--note`; `load_ground_truth(kind="total")`; `tune.py` usa o total distinto quando a execução cobre a mesma faixa (senão avisa) e ganhou `--end-frame`.
 - [x] **Filtro de marca d'água** (não estava nas tarefas): o watermark do TikTok confirmava como animal. `counter.static_track_ids()` descarta ID com centro variando ≤ 10 px em ≥ 100 frames. `conf 0.25 → 0.15` reduziu o erro de **−20% para −6%** (66 confirmados para 70).
 
-## Feito em 27/11/2026 (sem o dono, só o alcançável sem GPU/robô humano)
+## Feito em 27/11/2026
 
-- [x] **T2 parcial — Etapa 0 do plano.** Criados `train.py` (wrapper `YOLO.train` com tudo vindo de `config.TRAIN_*`), `pseudo_label.py` (opção B, conf ≥ 0,5, separado por vídeo, só para treino), `config.py §7` (`TRAIN_*`, `PSEUDO_*`) e `notebooks/treino_colab.ipynb`. Falta: baixar dataset A, linha de base `yolo val`, treinos A e A+B no Colab e tabela da Etapa 4.
-- [x] **T3 parcial — docs.** `APRESENTACAO.md §2` atualizada para `conf 0,15`, refs de linha removidas (estavam quebradas), filtro de objeto fixo + `--end-frame 491` documentados, checklist com fallback para `gado.webm`. `README.md` sem "squad/agentes" e com `CPU_NUM_THREADS`. Falta: decisão final A vs A+B na apresentação.
+- [x] **T2, fine-tune A.** Modelo `best_a.pt` validado localmente no split test: P 0,760 / R 0,607 / mAP50 0,652 / mAP50-95 0,282. No vídeo de desenvolvimento, 3,0 detecções/frame e 0 confirmados em matching 0,90. Não foi adotado.
+- [x] **T2, referência do `gado.webm`.** Frames 18→38, 67→12, 147→47; total distinto estimado 100 em [0:644]. Registrado em `validation/ground_truth.json`.
+- [x] **T2, pseudo-rótulos A+B gerados.** 22 frames amostrados, 362 caixas em 20 frames não vazios.
+- [x] **T3.** `APRESENTACAO.md` e `README.md` atualizados com o fine-tune A, a queda no vídeo de desenvolvimento e a decisão de manter `yolo11ft.pt`.
 - [x] **Demo sem `video-gado.mp4`.** `run.bat`/`run.sh` agora aceitam `gado.webm` como reserva (o `.mp4` não está na pasta).
 - [x] **`.gitignore`.** Adicionado `runs/` (pesos gerados do treino).
 
 ## Feito em 27/11/2026 (2ª parte — sem vídeo oficial, execução autônoma)
 
 - [x] **Validação `gado.webm [0:150]` (sem humano ainda).** `report`: 12,9/frame, pico 31, 41 confirmados / 66 IDs / frag 1,61. Grid: 0.70 → 3,94; 0.80 → 2,12; **0.90 → 1,61** (confirma o padrão). Cache em `cache/gado_f0_150_c0.15_i0.60_s640.npz`, CSV em `validation/tune_gado_f0_150_c0.15.csv`.
-- [x] **Frames p/ referência humana do `gado.webm`.** Gerados `validation/gado_f00018.png`, `f00067.png`, `f00147.png`. Falta: `validate.py gt --video gado.webm --frame N --count C` + `--total X`.
-- [x] **Dataset sem API key.** Criado `download_dataset.py` (HF `Francesco/aerial-cows`, CC BY 4.0, 1084/299/340) + conversão COCO→YOLO + `data.yaml`. Instalado via `uv pip` (venv uv não tem pip interno). Download rodando em background.
-- [ ] **Pendente humano/Colab.** Contagem dos 3 frames do `gado.webm`, `yolo val` linha base, treinos A e A+B no Colab, tabela Etapa 4.
+- [x] **Frames p/ referência humana do `gado.webm`.** Gerados `validation/gado_f00018.png`, `f00067.png`, `f00147.png`; contagens e total distinto registrados no `ground_truth.json`.
+- [x] **Dataset sem API key.** `Francesco/aerial-cows` (CC BY 4.0, 1084/299/340) baixado e convertido para YOLO.
+- [x] **Linha base e fine-tune A.** Avaliados no split test público. A teve mAP50 maior, mas erro −100% no vídeo, então o modelo padrão não mudou.
+- [ ] **A+B e gráficos do treino A.** A tentativa local parou após 15/70 batches da primeira época por limite de tempo; retomar no Colab ou em execução com várias horas. O `results.png` de A não veio do Colab; as curvas PR e matriz de confusão da validação local estão em `runs/detect/val-3/`.
 
 ## P0: credibilidade
 
-- [x] **T1. Referência humana (você).**
-  - Contar os bovinos em `validation/video-gado_f00015.png`, `f00098.png` e `f00149.png`, ignorando as caixas. Registrar com `python validate.py gt --video video-gado.mp4 --frame <N> --count <C>`.
-  - Se possível, estimar também o **total de animais distintos** do vídeo, assistindo devagar.
-  - *Critério:* `validation/ground_truth.json` existe e foi feito por humano. — **Feito.**
-- [ ] **T2. Plano de treinamento mínimo** (`docs/PLANO-TREINAMENTO.md`): `train.py`, `pseudo_label.py`, dataset público anotado, treino no Colab e tabela antes × depois.
-  - *Critério:* tabela da Etapa 4 preenchida e `results.png` salvo.
-- [ ] **T3. Atualizar `APRESENTACAO.md` e `README.md`** com os números sem vinheta (56 / 89 / 1,59) e as ressalvas honestas:
-  - a referência ainda está pendente;
-  - fragmentação menor não é o mesmo que contagem certa.
-  - *Critério:* nenhum número dos slides diverge dos logs em `validation/`. — **README e CLAUDE.md feitos; `APRESENTACAO.md` pendente.**
+- [x] **T1. Referência humana.** `validation/ground_truth.json` contém as contagens do `gado.webm` (frames 18, 67 e 147) e o total distinto estimado 100 em [0:644]. O vídeo oblíquo antigo não está mais disponível.
+- [ ] **T2. Plano de treinamento mínimo** (`docs/PLANO-TREINAMENTO.md`): A+B ainda precisa terminar e ser avaliado; falta recuperar `results.png` do treino A, se disponível.
+- [x] **T3. Atualizar apresentação e README.** Resultados atuais, limitações do teste de transferência e decisão da Etapa 5 documentados.
 - [x] **T4. Métrica de acerto em `validate.py`.**
   - Hoje `load_ground_truth()` usa o `max()` entre frames (o pico). Adicionar uma referência de **total distinto por vídeo** (chave separada no JSON) e fazer o `tune.py` reportar o erro contra ela.
   - Mexe na lógica de validação; combinar antes.

@@ -31,13 +31,13 @@
 ### 2.1 Leitura ([main.py](main.py))
 * `cv2.VideoCapture` abre o arquivo e lê largura, altura, FPS e total de quadros.
 * Cada `cap.read()` traz **um** quadro (uma imagem como matriz NumPy). Isso permite processar vídeos de qualquer tamanho sem estourar a RAM.
-* `--end-frame` corta o fim do vídeo (vinhetas/créditos): no `video-gado.mp4` a vinheta do TikTok começa no frame 492, então a contagem oficial usa `--end-frame 491`.
+* `--end-frame` permite cortar vinhetas e créditos. O corte no frame 491 foi usado apenas no `video-gado.mp4`, que não está mais disponível.
 
 ### 2.2 Identificação ([detector.py](detector.py))
 * **YOLO** ("You Only Look Once") é uma rede neural que olha a imagem inteira **uma vez** e devolve todos os objetos de uma só vez. Por isso é rápida.
 * Usamos o modelo **`yolo11ft.pt` (YOLOv11)**, já treinado por terceiros em imagens aéreas de gado (*transfer learning* — nenhuma rotulagem manual). Ele tem uma única classe: `cow`.
 * Filtros aplicados ([config.py](config.py)):
-  * **Confiança ≥ 0,15:** calibrado em 18/11 contra a contagem humana (70 animais). Caixas fracas (0,15–0,25) não criam IDs novos (a ativação é 0,30), mas mantêm o track vivo quando o animal pisca por 1–2 quadros.
+  * **Confiança ≥ 0,15:** calibrado em 18/11 no vídeo oblíquo histórico, que não está mais disponível. Caixas fracas (0,15–0,25) não criam IDs novos (a ativação é 0,30), mas mantêm o track vivo quando o animal pisca por 1–2 quadros.
   * **IoU 0,60 (NMS):** quando duas caixas se sobrepõem demais sobre o mesmo animal, fica só a melhor — o valor alto preserva animais agrupados.
   * **Classe de interesse:** só passa a classe `cow`.
 * **SAHI opcional (`--slicing`):** fatia o quadro em janelas 640×640 com sobreposição e junta as caixas. Detecta melhor animais pequenos/distantes, mas é ~10× mais lento ([detector.py](detector.py)).
@@ -53,12 +53,12 @@
 ### 2.4 Contagem ([counter.py](counter.py))
 O sistema mostra duas métricas no HUD:
 * **NO QUADRO:** quantos animais estão visíveis agora.
-* **TOTAL CONFIRMADO:** quantos IDs diferentes já apareceram por pelo menos **15 quadros consecutivos** ([config.py](config.py)). A tolerância a falhas curtas de detecção (`STREAK_GAP_TOLERANCE`) existe, mas está em 0 — sem contagem manual de referência não dá para provar que tolerar falhas melhora o resultado.
+* **TOTAL CONFIRMADO:** quantos IDs diferentes já apareceram por pelo menos **15 quadros consecutivos** ([config.py](config.py)). A tolerância a falhas curtas de detecção (`STREAK_GAP_TOLERANCE`) permanece em 0; ainda não foi comparada contra a referência humana do `gado.webm`.
 
 O filtro de persistência:
 * **descarta ruído**: uma pedra detectada por 2 quadros nunca chega a 15;
 * **evita contar duas vezes**: o total é um *conjunto* de IDs, então o mesmo ID nunca é somado de novo, mesmo que o drone gire 360°.
-* **descarta objeto fixo na tela**: marca d'água/logo com centro variando ≤ 10 px em ≥ 100 frames sai do total final (`static_track_ids`). No `video-gado.mp4` isso remove 1 falso positivo do TikTok (ID #38, 1 px em 339 quadros).
+* **descarta objeto fixo na tela**: marca d'água/logo com centro variando ≤ 10 px em ≥ 100 frames sai do total final (`static_track_ids`). No vídeo oblíquo histórico, o filtro removeu um falso positivo do TikTok.
 
 A **LineZone** (linha virtual que conta quem cruza) existe, mas está **desligada** ([config.py](config.py)). Ela só funciona bem com o drone voando em linha reta sobre um corredor.
 
@@ -68,7 +68,7 @@ A **LineZone** (linha virtual que conta quem cruza) existe, mas está **desligad
 
 **Demo (um comando só):**
 ```powershell
-.\run.bat                     # Windows: usa input_video.mp4, video-gado.mp4 ou gado-teste.mp4
+.\run.bat                     # Windows: usa o primeiro vídeo disponível, incluindo gado.webm
 .\run.bat outro-video.mp4     # ou um vídeo específico
 ./run.sh                      # Linux
 ```
@@ -77,8 +77,8 @@ Abre a janela com o tracking ao vivo. Controles: **[ESPAÇO]** pausa, **[F]** te
 **Passo a passo manual:**
 ```powershell
 .venv\Scripts\activate                                                # 1. ativa o ambiente Python
-python -m unittest test_pipeline -v                                   # 2. testes automáticos (9 testes)
-python main.py --input video-gado.mp4 --output resultado.mp4 --show   # 3. processa e exibe
+python -m unittest test_pipeline -v                                   # 2. testes automáticos (10 testes)
+python main.py --input gado.webm --output resultado.mp4 --show        # 3. processa e exibe
 ```
 
 * Durante a execução aparece uma barra de progresso. No fim, o terminal mostra os quadros processados, o tempo, o FPS e o **total de bovinos**.
@@ -98,7 +98,7 @@ python main.py --input video-gado.mp4 --output resultado.mp4 --show   # 3. proce
 | [generate_test_video.py](generate_test_video.py) | Gera um vídeo sintético para teste |
 | [run.bat](run.bat) / [run.sh](run.sh) | Atalho da demo (Windows / Linux) |
 | [requirements.txt](requirements.txt) | Bibliotecas necessárias |
-| `video-gado.mp4` / `video-gado-anotado.mp4` | Vídeo real de teste e o resultado já processado |
+| `gado.webm` | Vídeo de desenvolvimento, 1080×1920, 644 quadros decodificados |
 
 ---
 
@@ -106,23 +106,23 @@ python main.py --input video-gado.mp4 --output resultado.mp4 --show   # 3. proce
 
 | Teste | Resultado |
 | :--- | :--- |
-| Testes automáticos | **9 de 9 passaram** |
+| Testes automáticos | **10 de 10 passaram** |
 | Modelo especializado `yolo11ft.pt` (YOLOv11, transfer learning) | ~8x mais detecções que o `yolov8n` no vídeo denso |
-| `video-gado.mp4` (20 s, 611 quadros, Nelore, drone baixo e inclinado) | **66 confirmados** (eram 72 com o COCO) para **70 contados à mão** = **erro −6%**; ~4,5 quadros/s |
-| `gado.webm` (1080x1920, rebanho denso, drone alto) | **132 confirmados** (eram 23 com o COCO) |
+| `gado.webm` com `yolo11ft.pt`, conf 0,15, matching 0,90 | **129 confirmados / 184 IDs / frag 1,43**, contra 100 distintos na referência humana: erro **+29%**; 19,7 detecções/frame |
+| Fine-tune A (`best_a.pt`) no teste público | P 0,760 / R 0,607 / mAP50 0,652; no `gado.webm`, 3,0 detecções/frame e 0 confirmados no matching 0,90 |
+| Decisão do modelo | `best_a.pt` não foi adotado: ganhou no teste público, mas teve erro −100% no vídeo; `yolo11ft.pt` permanece padrão |
+| `video-gado.mp4` | Resultados históricos, não reproduzíveis neste checkout porque o arquivo não está disponível |
 | Ajuste distantes/agrupados (`conf 0,25`, `iou 0,60`) | +8–11% na contagem, mesma velocidade |
-| Calibração do rastreador (`matching` 0,70 → 0,90) | fragmentação **2,61 → 1,75** e **3,30 → 1,42**; IDs 180 → 103 e 439 → 182 |
-| `conf 0,25 → 0,15` (18/11) | **56 → 67 confirmados** com os mesmos 89 IDs: erro vs. humano **−20% → −4%** |
-| Filtro de marca d'água (18/11) | remove 1 falso positivo do logo do TikTok; total final **66 (−6%)** |
+| Calibração histórica do rastreador (`matching` 0,70 → 0,90) | fragmentação caiu nos vídeos de teste da época; o vídeo oblíquo não está mais disponível |
 | SAHI (`--slicing`) no `gado.webm` | 18,9 → 20,9 detecções/frame, ~1,9 s/frame |
-| Limitação restante | recall do detector: as caixas veem ~50% dos animais de um quadro (22 de 40); fragmentação 1,35 |
+| Limitação restante | o erro de contagem varia por domínio; o fine-tune A no dataset público não transferiu para o vídeo denso |
 
 ---
 
 ## 5. Perguntas prováveis do professor
 
 **"Vocês treinaram o modelo?"**
-Não, de propósito. Usamos *transfer learning*: um modelo já treinado em milhares de imagens. Treinar do zero com poucas imagens daria *overfitting* (o modelo decora em vez de aprender). O nosso trabalho de engenharia está no rastreamento e na contagem.
+Sim. Fizemos fine-tuning do YOLOv11 em um dataset público de gado aéreo já anotado, sem desenhar caixas. No teste independente desse dataset, o modelo A obteve P 0,760, R 0,607 e mAP50 0,652, contra mAP50 0,061 da base. No vídeo de desenvolvimento, porém, A caiu para 3,0 detecções por frame e não confirmou nenhum ID no protocolo padrão. Por isso não substituímos o modelo adotado. Treinar do zero com poucas imagens também aumentaria o risco de *overfitting*.
 
 **"Por que não contar as caixas de cada quadro e somar?"**
 Porque o mesmo boi aparece em centenas de quadros. Em 20 s de vídeo são 611 quadros, e somar contaria cada animal centenas de vezes. O rastreamento dá um ID único por animal e contamos IDs, não caixas.
@@ -137,10 +137,10 @@ O ByteTrack mantém o ID guardado por 45 quadros (~1,5 s). Se o boi reaparecer n
 O COCO identifica os Nelore (gado branco) como `sheep` e, em voo alto, quase não via os animais (2,3 detecções/frame no vídeo denso). Trocamos por um modelo treinado em gado aéreo (`yolo11ft.pt`), que só tem a classe `cow` e detecta ~8× mais.
 
 **"A contagem está certa?"**
-Agora temos como responder: **erro de −6%**. Contamos à mão 3 quadros (40, 44 e 35 bois) e estimamos **≈70 animais distintos** no vídeo. O sistema conta **66**. Para chegar lá mudamos duas coisas medidas: baixamos o limiar de confiança de 0,25 para 0,15 (de 56 para 67 confirmados, sem criar nenhum ID novo — as caixas fracas só mantêm o rastreio vivo) e filtramos um falso positivo sistemático, a marca d'água do TikTok, que era detectada como boi e ficava parada na tela (1 px em 339 quadros). Antes dessas mudanças o erro era **−20%**. O que ainda limita é o **recall**: as caixas pegam ~50% dos animais de um quadro, então parte do acerto vem de o tracker recuperar o animal em quadros seguintes.
+No vídeo de desenvolvimento `gado.webm`, a referência humana estima 100 animais distintos. A configuração padrão confirma 129 IDs, erro de **+29%**. Nos três quadros de referência, as contagens humanas são 38, 12 e 47; o detector base encontrou 29, 13 e 42 caixas. Caixa não equivale necessariamente a um animal, pois pode cobrir mais de um bovino ou conter duplicatas. O fine-tune A não resolveu esse domínio: confirmou zero IDs no matching 0,90. Portanto o resultado é uma estimativa, não uma contagem exata.
 
 **"Como vocês sabem que a contagem está certa?"**
-Com contagem humana de referência (`validation/ground_truth.json`): 3 quadros contados à mão e o total de animais distintos do vídeo. O `tune.py` agora reporta o **erro %** contra esse total, não só a fragmentação. Também comparamos os animais de duas configurações **pela posição** (não pelo número do ID, que é renumerado a cada execução): os 56 animais do limiar 0,25 estão todos entre os 66 atuais.
+Usamos a referência humana em `validation/ground_truth.json`: três contagens de quadro e uma estimativa de 100 animais distintos no `gado.webm`. O modelo padrão erra +29% nesse vídeo. Essa referência é específica ao vídeo de desenvolvimento e não prova a precisão em outros voos. A avaliação no split test público mede detecção por caixa, não a contagem de animais únicos no vídeo.
 
 **"Roda em tempo real?"**
 Na CPU do notebook, a ~5 FPS com o modelo especializado (o vídeo tem 30 FPS): processa em cerca de 6× o tempo do vídeo. O código já aceita GPU (CUDA), basta trocar `DEVICE` em [config.py:21](config.py#L21), e com GPU passaria do tempo real. Para contar um rebanho, processar depois do voo é suficiente.
@@ -152,7 +152,7 @@ Criamos um medidor (`validate.py report`): ele roda o rastreamento e conta, para
 IoU (*Intersection over Union*) mede quanto duas caixas se sobrepõem. O NMS (*Non-Maximum Suppression*) usa o IoU para apagar caixas duplicadas sobre o mesmo animal e deixar só a de maior confiança.
 
 **"Como vocês garantem que o código funciona?"**
-Com testes automáticos em [test_pipeline.py](test_pipeline.py): persistência (só conta após 15 quadros), reset da persistência quando o ID some, ruído (2 quadros não conta), giro de 360° (3 animais por 50 quadros = 3, não 150), objeto fixo na tela (marca d'água sai do total), HUD e SAHI. Hoje são **9 testes, todos passando**.
+Com testes automáticos em [test_pipeline.py](test_pipeline.py): persistência (só conta após 15 quadros), reset da persistência quando o ID some, ruído (2 quadros não conta), giro de 360° (3 animais por 50 quadros = 3, não 150), objeto fixo na tela (marca d'água sai do total), HUD, SAHI e isolamento do cache por modelo. Hoje são **10 testes, todos passando**.
 
 **"Por que separar em vários arquivos?"**
 Cada arquivo tem uma responsabilidade. Para trocar o modelo, mexemos só no detector. Para trocar a regra de contagem, só no counter. Isso facilita testar, manter e evoluir o código.
@@ -164,21 +164,17 @@ Cada arquivo tem uma responsabilidade. Para trocar o modelo, mexemos só no dete
 * Os modelos prontos foram treinados em nadir; no vídeo oblíquo o ganho é menor.
 
 **"Próximos passos?"**
-* ~~Usar um modelo especializado em gado aéreo (Roboflow).~~ **Adotado:** `models/yolo11ft.pt` (YOLOv11, `cattle_graze_model`).
-* **Fontes encontradas (prontas para download):** Roboflow Universe → "aerial cows" (mAP@50 86.2%, P 88.8%, R 81.3%); ICAERUS-EU/UC3_Livestock_Monitoring → cow YOLOv8 (nadir, ~100 m); Hugging Face → `rmayormartins/yolov5-farm-cattle`, `xxilytoo/cattle_graze_model`, `cpraschl/bambi-models`. Testar via `--model` nos vídeos `video-gado.mp4` e `gado.webm`.
-* Validar a contagem contra uma contagem manual.
-* Compensar o movimento da câmera.
-* Usar GPU.
-* Adaptar o HUD para vídeo vertical.
+* Retomar e avaliar A+B, que combina o dataset público com pseudo-rótulos automáticos de `gado.webm`. A tentativa local foi interrompida por limite de tempo na primeira época.
+* Medir outros vídeos com uma referência humana antes de generalizar o erro.
+* Testar compensação de movimento da câmera para reduzir fragmentação em voos altos.
 
 ---
 
 ## 6. Checklist antes da aula
 
-- [ ] Rodar uma vez antes e confirmar o total (**66** no `video-gado.mp4`, **132** no `gado.webm`):
-  `.\.venv\Scripts\python.exe main.py --input video-gado.mp4 --output resultado.mp4 --show --end-frame 491`
-  Sem `video-gado.mp4` na pasta, use `gado.webm` como demo reserva (rebanho denso, drone alto).
-  O `.\run.bat` (demo ao vivo) não corta a vinheta, então conta alguns bois a mais — use-o para mostrar o tracking, não para conferir o número.
+- [ ] Rodar a demo com `gado.webm` e conferir a saída, sem tratar 129 como verdade universal:
+  `.\.venv\Scripts\python.exe main.py --input gado.webm --output resultado.mp4 --show`
+  O `video-gado.mp4` não está mais disponível. `gado.webm` é vídeo de desenvolvimento e tem referência própria em `validation/ground_truth.json`.
 - [ ] Ter um vídeo anotado aberto como **plano B**, caso o computador da sala seja lento ou não tenha o ambiente.
 - [ ] No Windows, use `.\run.bat`. O `./run.sh` é só para Linux.
 - [ ] O primeiro quadro pode demorar alguns segundos (carregamento do modelo). Avise a turma para não parecer travado.

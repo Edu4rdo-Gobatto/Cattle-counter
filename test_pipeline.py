@@ -4,6 +4,7 @@ Valida a lógica matemática e espacial dos módulos:
 1. CattleCounter (Persistência de IDs, contagem ativa e LineZone)
 2. CattleTracker (Associação de Bboxes com ByteTrack)
 3. HUD Drawing (Renderização gráfica e sobreposição de telemetria)
+4. Cache de detecções isolado por modelo
 """
 
 import unittest
@@ -15,6 +16,22 @@ import config
 from counter import CattleCounter
 from tracker import CattleTracker
 from main import draw_hud
+from validate import cache_path
+
+
+class TestValidationCache(unittest.TestCase):
+    def test_model_variants_use_separate_detection_caches(self):
+        base = cache_path(
+            Path("gado.webm"), 0, 644, 0.15, 0.60, 640, config.MODEL_WEIGHTS
+        )
+        fine_tuned = cache_path(
+            Path("gado.webm"), 0, 644, 0.15, 0.60, 640, "models/best_a.pt"
+        )
+
+        self.assertEqual(base.name, "gado_f0_644_c0.15_i0.60_s640.npz")
+        self.assertEqual(
+            fine_tuned.name, "gado_f0_644_c0.15_i0.60_s640_mbest_a.npz"
+        )
 
 
 class TestCattleSystem(unittest.TestCase):
