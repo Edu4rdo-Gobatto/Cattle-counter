@@ -18,6 +18,7 @@ SET "VIDEO=%~1"
 IF "%VIDEO%"=="" IF EXIST "input_video.mp4" SET "VIDEO=input_video.mp4"
 IF "%VIDEO%"=="" IF EXIST "video-gado.mp4" SET "VIDEO=video-gado.mp4"
 IF "%VIDEO%"=="" IF EXIST "gado-teste.mp4" SET "VIDEO=gado-teste.mp4"
+IF "%VIDEO%"=="" IF EXIST "gado.webm" SET "VIDEO=gado.webm"
 
 IF "%VIDEO%"=="" (
     echo [ERRO] Nenhum video encontrado.

@@ -151,3 +151,25 @@ WINDOW_NAME = "Contador Aereo de Bovinos"
 
 # Altura inicial da janela em pixels (a janela pode ser redimensionada ou maximizada)
 WINDOW_HEIGHT = 900
+
+# ==============================================================================
+# 7. TREINAMENTO / FINE-TUNING (PLANO-TREINAMENTO.md, T2)
+# ==============================================================================
+# Todos os parâmetros do `train.py` e do `pseudo_label.py` ficam aqui (regra 6:
+# caminhos e parâmetros só no config.py). Nada de fine-tuning muda o pipeline
+# de contagem sozinho: trocar MODEL_WEIGHTS pelo best.pt novo é decisão
+# posterior (Etapa 5 do plano), com tabela antes x depois.
+TRAIN_DATA_YAML = "data/datasets/aerial-cows/data.yaml"
+TRAIN_EPOCHS = 30
+TRAIN_IMGSZ = 640
+TRAIN_BATCH = 16
+TRAIN_FREEZE = 10  # congela o backbone (transfer learning de fato)
+TRAIN_PATIENCE = 10  # early stopping sobre o mAP de validação
+TRAIN_PROJECT = "runs/train"
+TRAIN_NAME_A = "a"  # opção A: só dataset público anotado
+TRAIN_NAME_AB = "ab"  # opção A+B: público + pseudo-rótulos
+TRAIN_SEED = 0
+
+# Pseudo-rotulagem (opção B): só entra no treino, nunca na avaliação.
+PSEUDO_CONF = 0.5  # conf mínima para virar pseudo-rótulo
+PSEUDO_EVERY_N = 30  # extrai 1 frame a cada N (evita frames quase idênticos)

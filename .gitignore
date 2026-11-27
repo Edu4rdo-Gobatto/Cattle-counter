@@ -30,6 +30,9 @@ data/output/
 cache/
 validation/*.png
 
+# Treino (pesos gerados e datasets baixados são regeneráveis)
+runs/
+
 # Vídeos e gravações (arquivos binários pesados)
 *.mp4
 *.avi

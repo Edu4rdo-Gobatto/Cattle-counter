@@ -4,21 +4,21 @@ Aplicação em Python de alta performance para monitoramento e contagem automati
 
 ---
 
-## 👥 Decisões da Squad de Engenharia
+## 👥 Decisões de projeto
 
-O comitê técnico multidisciplinar estruturou a aplicação para o hardware **AMD Ryzen 7 5700U** em modo **offline**, considerando que o drone realiza curvas e giros de 360°:
+O projeto foi estruturado para o hardware **AMD Ryzen 7 5700U** em modo **offline**, considerando que o drone realiza curvas e giros de 360°:
 
-1. **Imunidade a Giros 360° (Agente 3 - QA):**
+1. **Imunidade a Giros 360°:**
    * Em vez de depender exclusivamente de uma linha estática na tela (que causaria contagens repetidas a cada volta do drone sobre o pasto), o sistema conta com um **Totalizador de IDs Únicos com Filtro de Persistência** (`MIN_FRAMES_PERSISTENCE`).
    * Um animal só é registrado no totalizador se for rastreado continuamente por pelo menos 15 frames, filtrando falsos positivos efêmeros (copas de árvores, pedras, sombras).
    * O HUD também exibe a métrica **NO QUADRO**, indicando quantos bovinos estão visíveis naquele exato segundo de filmagem.
 
-2. **Otimização Ryzen 7 5700U (Agente 2 - Performance):**
-   * Configuração de multithreading do PyTorch (`torch.set_num_threads(8)`) para paralelização nos 8 núcleos da CPU Zen 2.
+2. **Otimização Ryzen 7 5700U:**
+   * Configuração de multithreading do PyTorch (`torch.set_num_threads(CPU_NUM_THREADS)`, metade de `os.cpu_count()`) para paralelização nos núcleos da CPU.
    * Utilização de um modelo especializado em gado aéreo (`yolo11ft.pt`, YOLOv11) para inferência rápida sem GPU dedicada.
    * Uso de estruturas vetorizadas do `supervision` para cálculo de IoU e associação do ByteTrack.
 
-3. **Arquitetura Modular Desacoplada (Agente 1 - Lead Architect):**
+3. **Arquitetura Modular Desacoplada:**
    * `config.py`: Centraliza todos os hiperparâmetros, diretórios e limiares de confiança.
    * `detector.py`: Encapsula a inferência do YOLO e converte predições em objetos `sv.Detections`.
    * `tracker.py`: Gerencia o algoritmo ByteTrack com predição de Filtro de Kalman e buffer de oclusão.

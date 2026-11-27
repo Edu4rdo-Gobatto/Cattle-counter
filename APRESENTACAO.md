@@ -20,44 +20,47 @@
 | Etapa | O que acontece | Onde está no código |
 | :--- | :--- | :--- |
 | **0. Configuração** | Todos os parâmetros num lugar só: modelo, confiança, classes, tempo de persistência | [config.py](config.py) |
-| **1. Leitura** | Abre o vídeo e lê **um quadro por vez** (não carrega o vídeo inteiro na memória) | [main.py:133](main.py#L133) abre · [main.py:205](main.py#L205) lê cada quadro |
-| **2. Identificação** | A YOLO analisa o quadro e devolve as caixas onde há animais, com a confiança e a classe | [detector.py:54-65](detector.py#L54-L65) |
-| **3. Rastreamento** | O ByteTrack liga as caixas do quadro atual às do anterior e dá um **número fixo (ID)** a cada animal | [tracker.py:42](tracker.py#L42) |
-| **4. Contagem** | Conta quantos quadros cada ID apareceu. Com **15 quadros** ou mais, o animal entra no total confirmado | [counter.py:77-86](counter.py#L77-L86) |
-| **5. Desenho e gravação** | Desenha caixas, IDs, rastros e o painel (HUD) e grava o quadro no vídeo de saída | [main.py:226-269](main.py#L226-L269) · HUD em [main.py:26](main.py#L26) |
-| **6. Exibição ao vivo** | Mostra o quadro anotado numa janela (espaço pausa, F tela cheia, Q sai) | [main.py:272-291](main.py#L272-L291) |
-| **Orquestração** | O laço principal chama as etapas 1 a 6 para cada quadro | [main.py:202-291](main.py#L202-L291) |
+| **1. Leitura** | Abre o vídeo e lê **um quadro por vez** (não carrega o vídeo inteiro na memória) | [main.py](main.py) abre com `VideoCapture` e lê cada quadro com `cap.read()` no laço principal |
+| **2. Identificação** | A YOLO analisa o quadro e devolve as caixas onde há animais, com a confiança e a classe | [detector.py](detector.py) (`_predict` + `detect`) |
+| **3. Rastreamento** | O ByteTrack liga as caixas do quadro atual às do anterior e dá um **número fixo (ID)** a cada animal | [tracker.py](tracker.py) (`update_with_detections`) |
+| **4. Contagem** | Conta quantos quadros cada ID apareceu. Com **15 quadros** ou mais, o animal entra no total confirmado | [counter.py](counter.py) (`update`: streak consecutivo + `confirmed_unique_ids`) |
+| **5. Desenho e gravação** | Desenha caixas, IDs, rastros e o painel (HUD) e grava o quadro no vídeo de saída | [main.py](main.py) (`draw_hud` + `VideoWriter`) · HUD em `draw_hud` |
+| **6. Exibição ao vivo** | Mostra o quadro anotado numa janela (espaço pausa, F tela cheia, Q sai) | [main.py](main.py) (bloco `show_window`) |
+| **Orquestração** | O laço principal chama as etapas 1 a 6 para cada quadro | [main.py](main.py) (`process_video`) |
 
 ### 2.1 Leitura ([main.py](main.py))
-* `cv2.VideoCapture` abre o arquivo e lê largura, altura, FPS e total de quadros ([main.py:133-140](main.py#L133-L140)).
+* `cv2.VideoCapture` abre o arquivo e lê largura, altura, FPS e total de quadros.
 * Cada `cap.read()` traz **um** quadro (uma imagem como matriz NumPy). Isso permite processar vídeos de qualquer tamanho sem estourar a RAM.
+* `--end-frame` corta o fim do vídeo (vinhetas/créditos): no `video-gado.mp4` a vinheta do TikTok começa no frame 492, então a contagem oficial usa `--end-frame 491`.
 
 ### 2.2 Identificação ([detector.py](detector.py))
 * **YOLO** ("You Only Look Once") é uma rede neural que olha a imagem inteira **uma vez** e devolve todos os objetos de uma só vez. Por isso é rápida.
 * Usamos o modelo **`yolo11ft.pt` (YOLOv11)**, já treinado por terceiros em imagens aéreas de gado (*transfer learning* — nenhuma rotulagem manual). Ele tem uma única classe: `cow`.
-* Filtros aplicados ([config.py:36-44](config.py#L36-L44)):
-  * **Confiança ≥ 0,25:** descarta palpites fracos sem perder animais distantes.
+* Filtros aplicados ([config.py](config.py)):
+  * **Confiança ≥ 0,15:** calibrado em 18/11 contra a contagem humana (70 animais). Caixas fracas (0,15–0,25) não criam IDs novos (a ativação é 0,30), mas mantêm o track vivo quando o animal pisca por 1–2 quadros.
   * **IoU 0,60 (NMS):** quando duas caixas se sobrepõem demais sobre o mesmo animal, fica só a melhor — o valor alto preserva animais agrupados.
   * **Classe de interesse:** só passa a classe `cow`.
-* **SAHI opcional (`--slicing`):** fatia o quadro em janelas 640×640 com sobreposição e junta as caixas. Detecta melhor animais pequenos/distantes, mas é ~10× mais lento ([detector.py:49-58](detector.py#L49-L58)).
-* A saída é convertida para `sv.Detections`, o formato da biblioteca *supervision* ([detector.py:73](detector.py#L73)).
+* **SAHI opcional (`--slicing`):** fatia o quadro em janelas 640×640 com sobreposição e junta as caixas. Detecta melhor animais pequenos/distantes, mas é ~10× mais lento ([detector.py](detector.py)).
+* A saída é convertida para `sv.Detections`, o formato da biblioteca *supervision*.
 
 ### 2.3 Rastreamento ([tracker.py](tracker.py))
 * A YOLO sozinha não sabe que o boi do quadro 10 é o mesmo do quadro 11. O **ByteTrack** resolve isso.
 * O **filtro de Kalman** prevê onde cada animal estará no próximo quadro, com base na posição e na velocidade. Depois o ByteTrack associa as novas caixas às previsões.
-* Diferencial do ByteTrack: ele **também usa as detecções de baixa confiança** para não perder um animal que ficou parcialmente encoberto.
-* Se o animal some (sombra, árvore), o ID fica guardado por **45 quadros** (~1,5 s) antes de ser descartado ([config.py:53](config.py#L53)).
+* Diferencial do ByteTrack: ele **também usa as detecções de baixa confiança** para não perder um animal que ficou parcialmente encoberto. Por isso o `conf 0,15` ajuda mesmo com ativação em 0,30.
+* Se o animal some (sombra, árvore), o ID fica guardado por **45 quadros** (~1,5 s) antes de ser descartado ([config.py](config.py)).
+* Calibração de 04/11: `MINIMUM_MATCHING_THRESHOLD = 0,90` (aceita IoU > 0,10 na associação). Reduziu a fragmentação de 2,61 para 1,75 no oblíquo e de 3,30 para 1,42 no denso.
 
 ### 2.4 Contagem ([counter.py](counter.py))
 O sistema mostra duas métricas no HUD:
 * **NO QUADRO:** quantos animais estão visíveis agora.
-* **TOTAL CONFIRMADO:** quantos IDs diferentes já apareceram por pelo menos **15 quadros consecutivos** ([config.py:87](config.py#L87)). A tolerância a falhas curtas de detecção (`STREAK_GAP_TOLERANCE`) existe, mas está em 0 — sem contagem manual de referência não dá para provar que tolerar falhas melhora o resultado.
+* **TOTAL CONFIRMADO:** quantos IDs diferentes já apareceram por pelo menos **15 quadros consecutivos** ([config.py](config.py)). A tolerância a falhas curtas de detecção (`STREAK_GAP_TOLERANCE`) existe, mas está em 0 — sem contagem manual de referência não dá para provar que tolerar falhas melhora o resultado.
 
 O filtro de persistência:
 * **descarta ruído**: uma pedra detectada por 2 quadros nunca chega a 15;
 * **evita contar duas vezes**: o total é um *conjunto* de IDs, então o mesmo ID nunca é somado de novo, mesmo que o drone gire 360°.
+* **descarta objeto fixo na tela**: marca d'água/logo com centro variando ≤ 10 px em ≥ 100 frames sai do total final (`static_track_ids`). No `video-gado.mp4` isso remove 1 falso positivo do TikTok (ID #38, 1 px em 339 quadros).
 
-A **LineZone** (linha virtual que conta quem cruza) existe, mas está **desligada** ([config.py:66](config.py#L66)). Ela só funciona bem com o drone voando em linha reta sobre um corredor.
+A **LineZone** (linha virtual que conta quem cruza) existe, mas está **desligada** ([config.py](config.py)). Ela só funciona bem com o drone voando em linha reta sobre um corredor.
 
 ---
 
@@ -172,10 +175,11 @@ Cada arquivo tem uma responsabilidade. Para trocar o modelo, mexemos só no dete
 
 ## 6. Checklist antes da aula
 
-- [ ] Rodar uma vez antes e confirmar o total (**66**):
+- [ ] Rodar uma vez antes e confirmar o total (**66** no `video-gado.mp4`, **132** no `gado.webm`):
   `.\.venv\Scripts\python.exe main.py --input video-gado.mp4 --output resultado.mp4 --show --end-frame 491`
+  Sem `video-gado.mp4` na pasta, use `gado.webm` como demo reserva (rebanho denso, drone alto).
   O `.\run.bat` (demo ao vivo) não corta a vinheta, então conta alguns bois a mais — use-o para mostrar o tracking, não para conferir o número.
-- [ ] Ter o [video-gado-anotado.mp4](video-gado-anotado.mp4) aberto como **plano B**, caso o computador da sala seja lento ou não tenha o ambiente.
+- [ ] Ter um vídeo anotado aberto como **plano B**, caso o computador da sala seja lento ou não tenha o ambiente.
 - [ ] No Windows, use `.\run.bat`. O `./run.sh` é só para Linux.
 - [ ] O primeiro quadro pode demorar alguns segundos (carregamento do modelo). Avise a turma para não parecer travado.
-- [ ] A janela ao vivo roda a ~8–11 FPS na CPU, mais devagar que o vídeo original. Isso é normal. Se perguntarem, veja "Roda em tempo real?".
+- [ ] A janela ao vivo roda a ~4–8 FPS na CPU, mais devagar que o vídeo original. Isso é normal. Se perguntarem, veja "Roda em tempo real?".

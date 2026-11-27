@@ -22,6 +22,13 @@ Legenda de prioridade:
 - [x] **T4. Métrica de acerto.** `validate.py gt --total/--end/--note`; `load_ground_truth(kind="total")`; `tune.py` usa o total distinto quando a execução cobre a mesma faixa (senão avisa) e ganhou `--end-frame`.
 - [x] **Filtro de marca d'água** (não estava nas tarefas): o watermark do TikTok confirmava como animal. `counter.static_track_ids()` descarta ID com centro variando ≤ 10 px em ≥ 100 frames. `conf 0.25 → 0.15` reduziu o erro de **−20% para −6%** (66 confirmados para 70).
 
+## Feito em 27/11/2026 (sem o dono, só o alcançável sem GPU/robô humano)
+
+- [x] **T2 parcial — Etapa 0 do plano.** Criados `train.py` (wrapper `YOLO.train` com tudo vindo de `config.TRAIN_*`), `pseudo_label.py` (opção B, conf ≥ 0,5, separado por vídeo, só para treino), `config.py §7` (`TRAIN_*`, `PSEUDO_*`) e `notebooks/treino_colab.ipynb`. Falta: baixar dataset A, linha de base `yolo val`, treinos A e A+B no Colab e tabela da Etapa 4.
+- [x] **T3 parcial — docs.** `APRESENTACAO.md §2` atualizada para `conf 0,15`, refs de linha removidas (estavam quebradas), filtro de objeto fixo + `--end-frame 491` documentados, checklist com fallback para `gado.webm`. `README.md` sem "squad/agentes" e com `CPU_NUM_THREADS`. Falta: decisão final A vs A+B na apresentação.
+- [x] **Demo sem `video-gado.mp4`.** `run.bat`/`run.sh` agora aceitam `gado.webm` como reserva (o `.mp4` não está na pasta).
+- [x] **`.gitignore`.** Adicionado `runs/` (pesos gerados do treino).
+
 ## P0: credibilidade
 
 - [x] **T1. Referência humana (você).**

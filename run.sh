@@ -14,7 +14,7 @@ fi
 
 VIDEO="$1"
 if [ -z "$VIDEO" ]; then
-    for candidato in input_video.mp4 video-gado.mp4 gado-teste.mp4; do
+    for candidato in input_video.mp4 video-gado.mp4 gado-teste.mp4 gado.webm; do
         if [ -f "$candidato" ]; then VIDEO="$candidato"; break; fi
     done
 fi
